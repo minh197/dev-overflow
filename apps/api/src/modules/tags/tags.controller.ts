@@ -7,7 +7,7 @@ export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
   @Get('popular')
-  getPopularTags(@Query() _query: GetPopularTagsQueryDto) {
-    return this.tagsService.listPopularTags();
+  getPopularTags(@Query() query: GetPopularTagsQueryDto) {
+    return this.tagsService.listPopularTags(query);
   }
 }
