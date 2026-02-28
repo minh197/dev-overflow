@@ -8,7 +8,13 @@ import { SearchModule } from './modules/search/search.module';
 import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, QuestionsModule, TagsModule, SearchModule, AuthModule],
+  imports: [
+    PrismaModule,
+    QuestionsModule,
+    TagsModule,
+    SearchModule,
+    AuthModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

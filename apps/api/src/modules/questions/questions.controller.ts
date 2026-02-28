@@ -8,12 +8,12 @@ export class QuestionsController {
   constructor(private readonly questionsService: QuestionsService) {}
 
   @Get()
-  getQuestions(@Query() _query: GetQuestionsQueryDto) {
-    return this.questionsService.listQuestions();
+  getQuestions(@Query() query: GetQuestionsQueryDto) {
+    return this.questionsService.listQuestions(query);
   }
 
   @Get('hot')
-  getHotQuestions(@Query() _query: GetHotQuestionsQueryDto) {
-    return this.questionsService.listHotQuestions();
+  getHotQuestions(@Query() query: GetHotQuestionsQueryDto) {
+    return this.questionsService.listHotQuestions(query);
   }
 }

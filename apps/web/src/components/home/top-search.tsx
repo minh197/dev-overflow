@@ -1,9 +1,11 @@
 type TopSearchProps = {
   placeholder?: string;
+  userInitials?: string;
 };
 
 export function TopSearch({
   placeholder = "Search anything globally",
+  userInitials = "JS",
 }: TopSearchProps) {
   return (
     <header className="mb-6 flex items-center gap-3">
@@ -32,7 +34,7 @@ export function TopSearch({
         aria-label="User profile"
         className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700"
       >
-        JS
+        {userInitials}
       </button>
     </header>
   );
