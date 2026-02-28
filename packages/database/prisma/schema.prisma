@@ -1,0 +1,441 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum PostType {
+  QUESTION
+  ANSWER
+}
+
+enum PostStatus {
+  ACTIVE
+  DELETED
+  HIDDEN
+}
+
+enum CollectionVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum BadgeTier {
+  GOLD
+  SILVER
+  BRONZE
+}
+
+enum JobType {
+  FULL_TIME @map("full-time")
+  PART_TIME @map("part-time")
+  CONTRACT
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CommunityVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum CommunityRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum NotificationType {
+  ANSWER_ACCEPTED
+  COMMENT
+  VOTE
+  BADGE_EARNED
+}
+
+enum NotificationEntityType {
+  POST
+  COMMENT
+  BADGE
+}
+
+model User {
+  id             Int        @id @default(autoincrement())
+  authProviderId String?    @unique @map("auth_provider_id")
+  email          String     @unique
+  username       String     @unique
+  passwordHash   String?    @map("password_hash")
+  fullName       String?    @map("full_name")
+  avatarUrl      String?    @map("avatar_url")
+  status         UserStatus @default(ACTIVE)
+  portfolioLink  String?    @map("portfolio_link")
+  location       String?
+  bio            String?
+  reputation     Int        @default(0)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  posts              Post[]
+  postViews          PostView[]
+  votes              Vote[]
+  collections        Collection[]      @relation("CollectionOwner")
+  bookmarks          Bookmark[]
+  comments           Comment[]
+  editedAiAnswers    AiAnswer[]        @relation("AiAnswerEditor")
+  userBadges         UserBadge[]
+  createdJobPostings JobPosting[]      @relation("JobCreator")
+  blogs              Blog[]            @relation("BlogAuthor")
+  communityMembers   CommunityMember[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Post {
+  id            Int        @id @default(autoincrement())
+  uuid          String     @unique
+  userId        Int        @map("user_id")
+  title         String?
+  bodyMdx       String     @map("body_mdx")
+  type          PostType
+  status        PostStatus @default(ACTIVE)
+  viewCount     Int        @default(0) @map("view_count")
+  answerCount   Int        @default(0) @map("answer_count")
+  upVoteCount   Int        @default(0) @map("up_vote_count")
+  downVoteCount Int        @default(0) @map("down_vote_count")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id])
+  postViews PostView[]
+  question  Question?
+  answer    Answer?
+  votes     Vote[]
+  bookmarks Bookmark[]
+  comments  Comment[]
+
+  @@index([type, status, createdAt], map: "idx_posts_listing")
+  @@index([userId, type], map: "idx_posts_user")
+  @@map("posts")
+}
+
+model PostView {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  postId    Int      @map("post_id")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post  @relation(fields: [postId], references: [id])
+
+  @@unique([userId, postId], map: "idx_post_views_unique")
+  @@map("post_views")
+}
+
+model Question {
+  id               Int      @id @default(autoincrement())
+  postId           Int      @unique @map("post_id")
+  acceptedAnswerId Int?     @unique @map("accepted_answer_id")
+  isClosed         Boolean  @default(false) @map("is_closed")
+  closedReason     String?  @map("closed_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  post           Post         @relation(fields: [postId], references: [id])
+  acceptedAnswer Answer?      @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id])
+  answers        Answer[]     @relation("QuestionAnswers")
+  questionTags   QuestionTag[]
+  aiAnswers      AiAnswer[]
+
+  @@map("questions")
+}
+
+model Answer {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @unique @map("post_id")
+  questionId Int     @map("question_id")
+  isAccepted Boolean @default(false) @map("is_accepted")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post                Post      @relation(fields: [postId], references: [id])
+  question            Question  @relation("QuestionAnswers", fields: [questionId], references: [id])
+  acceptedForQuestion Question? @relation("AcceptedAnswer")
+
+  @@index([questionId], map: "idx_answers_question")
+  @@map("answers")
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  postId    Int      @map("post_id")
+  value     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+
+  @@unique([userId, postId], map: "idx_votes_unique")
+  @@map("votes")
+}
+
+model Tag {
+  id            Int      @id @default(autoincrement())
+  slug          String   @unique
+  displayName   String   @map("display_name")
+  description   String?
+  iconUrl       String?  @map("icon_url")
+  questionCount Int      @default(0) @map("question_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  questionTags QuestionTag[]
+  jobTags      JobTag[]
+  blogTags     BlogTag[]
+
+  @@index([questionCount], map: "idx_tags_popular")
+  @@map("tags")
+}
+
+model QuestionTag {
+  questionId Int      @map("question_id")
+  tagId      Int      @map("tag_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id])
+  tag      Tag      @relation(fields: [tagId], references: [id])
+
+  @@id([questionId, tagId])
+  @@map("question_tags")
+}
+
+model Collection {
+  id          Int                  @id @default(autoincrement())
+  ownerId     Int                  @map("owner_id")
+  name        String
+  description String?
+  visibility  CollectionVisibility @default(PRIVATE)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  owner     User       @relation("CollectionOwner", fields: [ownerId], references: [id])
+  bookmarks Bookmark[]
+
+  @@index([ownerId], map: "idx_collections_owner")
+  @@map("collections")
+}
+
+model Bookmark {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  postId       Int      @map("post_id")
+  collectionId Int?     @map("collection_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  post       Post        @relation(fields: [postId], references: [id])
+  collection Collection? @relation(fields: [collectionId], references: [id])
+
+  @@unique([userId, postId], map: "idx_bookmarks_unique")
+  @@map("bookmarks")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  userId    Int      @map("user_id")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post Post @relation(fields: [postId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt], map: "idx_comments_post")
+  @@map("comments")
+}
+
+model AiAnswer {
+  id               Int      @id @default(autoincrement())
+  questionId       Int      @map("question_id")
+  editorUserId     Int?     @map("editor_user_id")
+  modelName        String   @map("model_name")
+  modelVersion     String   @map("model_version")
+  bodyMdx          String   @map("body_mdx")
+  isActive         Boolean  @default(true) @map("is_active")
+  helpfulCount     Int      @default(0) @map("helpful_count")
+  notHelpfulCount  Int      @default(0) @map("not_helpful_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  question   Question @relation(fields: [questionId], references: [id])
+  editorUser User?    @relation("AiAnswerEditor", fields: [editorUserId], references: [id])
+
+  @@index([questionId], map: "idx_ai_answers_question")
+  @@map("ai_answers")
+}
+
+model Badge {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  name        String
+  description String?
+  tier        BadgeTier
+  iconUrl     String?   @map("icon_url")
+  criteria    String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  userBadges UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  badgeId   Int      @map("badge_id")
+  awardedAt DateTime @default(now()) @map("awarded_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId, awardedAt], map: "idx_user_badges_unique")
+  @@index([userId], map: "idx_user_badges_user")
+  @@map("user_badges")
+}
+
+model JobPosting {
+  id             Int      @id @default(autoincrement())
+  creatorId      Int?     @map("creator_id")
+  title          String
+  companyName    String   @map("company_name")
+  companyLogoUrl String?  @map("company_logo_url")
+  description    String?
+  location       String?
+  isRemote       Boolean  @default(false) @map("is_remote")
+  jobType        JobType  @map("job_type")
+  salaryMin      Int?     @map("salary_min")
+  salaryMax      Int?     @map("salary_max")
+  salaryCurrency String   @default("USD") @map("salary_currency")
+  externalUrl    String?  @map("external_url")
+  isActive       Boolean  @default(true) @map("is_active")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  creator User? @relation("JobCreator", fields: [creatorId], references: [id])
+  jobTags JobTag[]
+
+  @@index([isActive, createdAt], map: "idx_jobs_active")
+  @@index([location], map: "idx_jobs_location")
+  @@map("job_postings")
+}
+
+model JobTag {
+  jobPostingId Int      @map("job_posting_id")
+  tagId        Int      @map("tag_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id])
+  tag        Tag        @relation(fields: [tagId], references: [id])
+
+  @@id([jobPostingId, tagId])
+  @@map("job_tags")
+}
+
+model Blog {
+  id            Int        @id @default(autoincrement())
+  authorId      Int        @map("author_id")
+  slug          String     @unique
+  title         String
+  excerpt       String?
+  bodyMdx       String     @map("body_mdx")
+  coverImageUrl String?    @map("cover_image_url")
+  status        BlogStatus @default(DRAFT)
+  publishedAt   DateTime?  @map("published_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  author   User      @relation("BlogAuthor", fields: [authorId], references: [id])
+  blogTags BlogTag[]
+
+  @@index([status, publishedAt], map: "idx_blogs_published")
+  @@index([authorId], map: "idx_blogs_author")
+  @@map("blogs")
+}
+
+model BlogTag {
+  blogId    Int      @map("blog_id")
+  tagId     Int      @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  blog Blog @relation(fields: [blogId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([blogId, tagId])
+  @@map("blog_tags")
+}
+
+model Community {
+  id            Int                 @id @default(autoincrement())
+  slug          String              @unique
+  name          String
+  description   String?
+  iconUrl       String?             @map("icon_url")
+  coverImageUrl String?             @map("cover_image_url")
+  memberCount   Int                 @default(0) @map("member_count")
+  visibility    CommunityVisibility @default(PUBLIC)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  communityMembers CommunityMember[]
+
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          Int           @id @default(autoincrement())
+  communityId Int           @map("community_id")
+  userId      Int           @map("user_id")
+  role        CommunityRole @default(MEMBER)
+  joinedAt    DateTime      @default(now()) @map("joined_at")
+
+  community Community @relation(fields: [communityId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([communityId, userId], map: "idx_community_members_unique")
+  @@map("community_members")
+}
+
+model Notification {
+  id         Int                    @id @default(autoincrement())
+  userId     Int                    @map("user_id")
+  type       NotificationType
+  entityType NotificationEntityType @map("entity_type")
+  entityId   Int                    @map("entity_id")
+  message    String?
+  isRead     Boolean                @default(false) @map("is_read")
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead, createdAt], map: "idx_notifications_unread")
+  @@map("notifications")
+}

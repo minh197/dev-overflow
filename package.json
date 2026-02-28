@@ -1,0 +1,28 @@
+{
+  "name": "devoverflow",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=web",
+    "dev:api": "npm run start:dev --workspace=api",
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
+    "prisma:generate": "npx prisma generate --schema=packages/database/prisma/schema.prisma",
+    "prisma:migrate": "cd packages/database && npx prisma migrate dev --schema=prisma/schema.prisma",
+    "prisma:studio": "cd packages/database && npx prisma studio --schema=prisma/schema.prisma",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2"
+  }
+}

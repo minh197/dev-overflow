@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Env (do not commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Build / runtime
+.next/
+dist/
+coverage/
+
+# IDE / OS
+.idea/
+.DS_Store
+*.log
