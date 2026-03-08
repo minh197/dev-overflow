@@ -43,6 +43,7 @@ export class QuestionsService {
       ],
     };
 
+    // [REVIEW] thiếu offset để có thể phân trang theo limit
     return this.prisma.post.findMany({
       where: {
         ...where,

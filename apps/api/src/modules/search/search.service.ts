@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
+
+ // [REVIEW] REMOVE
 export class SearchService {
   globalSearch() {
     return {

@@ -18,16 +18,31 @@ export class GetQuestionsQueryDto {
   q?: string;
 
   @IsOptional()
+  @IsArray()
+  where?: string;
+
+  @IsOptional()
+  @IsArray()
+  orderby?: string;
+
+  @IsOptional()
+  @IsArray()
+  select?: string;
+
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(50)
   limit?: number;
 
+  // [REVIEW] chưa thấy được sử dụng
   @IsOptional()
   @IsString()
   cursorCreatedAt?: string;
 
+  // [REVIEW] chưa thấy được sử dụng
   @IsOptional()
   @IsString()
   cursorPostId?: string;

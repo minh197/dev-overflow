@@ -73,10 +73,11 @@ enum NotificationEntityType {
 
 model User {
   id             Int        @id @default(autoincrement())
+  // [REVIEW] add uuid
   authProviderId String?    @unique @map("auth_provider_id")
   email          String     @unique
   username       String     @unique
-  passwordHash   String?    @map("password_hash")
+  passwordHash   String?    @map("password_hash")   // [REVIEW] tại sao passwordHash optional
   fullName       String?    @map("full_name")
   avatarUrl      String?    @map("avatar_url")
   status         UserStatus @default(ACTIVE)
@@ -108,7 +109,7 @@ model Post {
   uuid          String     @unique
   userId        Int        @map("user_id")
   title         String?
-  bodyMdx       String     @map("body_mdx")
+  bodyMdx       String     @map("body_mdx") // [REVIEW] rename bodyMdx
   type          PostType
   status        PostStatus @default(ACTIVE)
   viewCount     Int        @default(0) @map("view_count")
@@ -121,7 +122,7 @@ model Post {
   user      User      @relation(fields: [userId], references: [id])
   postViews PostView[]
   question  Question?
-  answer    Answer?
+  answer    Answer? // [REVIEW] 1 question có N ANSWER
   votes     Vote[]
   bookmarks Bookmark[]
   comments  Comment[]
@@ -135,7 +136,7 @@ model PostView {
   id        Int      @id @default(autoincrement())
   userId    Int?     @map("user_id")
   postId    Int      @map("post_id")
-  ipAddress String?  @map("ip_address")
+  ipAddress String?  @map("ip_address") // [REVIEW] tsao cần ipaddress
   createdAt DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id])
@@ -145,6 +146,7 @@ model PostView {
   @@map("post_views")
 }
 
+// [REVIEW] khôgn cần bảng Question
 model Question {
   id               Int      @id @default(autoincrement())
   postId           Int      @unique @map("post_id")
@@ -163,6 +165,7 @@ model Question {
   @@map("questions")
 }
 
+// [REVIEW] không cần Answer 
 model Answer {
   id        Int      @id @default(autoincrement())
   postId    Int      @unique @map("post_id")
