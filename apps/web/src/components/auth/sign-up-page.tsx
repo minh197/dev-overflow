@@ -25,10 +25,17 @@ export function SignUpPage({ nextPath }: SignUpPageProps) {
 
   const signUpMutation = useMutation({
     mutationFn: signUp,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
-      router.replace(nextPath);
+      const params = new URLSearchParams({
+        signup: "success",
+        email: result.user.email,
+      });
+      if (nextPath !== "/") {
+        params.set("next", nextPath);
+      }
+      router.replace(`/sign-in?${params.toString()}`);
     },
     onError: (error) => {
       setErrorMessage(

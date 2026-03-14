@@ -9,7 +9,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AccessTokenGuard, OptionalAccessTokenGuard } from '../auth/access-token.guard';
+import {
+  AccessTokenGuard,
+  OptionalAccessTokenGuard,
+} from '../auth/access-token.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { QuestionsService } from './questions.service';

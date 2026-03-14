@@ -62,10 +62,9 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('creates a local user session during sign up', async () => {
+  it('creates a local user account during sign up', async () => {
     const prisma = makePrismaMock();
     const jwtService = makeJwtServiceMock();
-    const response = makeResponse();
 
     prisma.user.findFirst.mockResolvedValue(null);
     prisma.user.create.mockResolvedValue({
@@ -75,30 +74,23 @@ describe('AuthService', () => {
       fullName: null,
       avatarUrl: null,
     });
-    prisma.session.create.mockResolvedValue({ id: 14 });
-
     const service = new AuthService(prisma as never, jwtService as never);
 
-    const result = await service.signUp(
-      {
-        username: 'student',
-        email: 'Student@Example.com',
-        password: 'Password123!',
-      },
-      request,
-      response,
-    );
+    const result = await service.signUp({
+      username: 'student',
+      email: 'Student@Example.com',
+      password: 'Password123!',
+    });
 
     expect(prisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: {
           email: 'student@example.com',
           username: 'student',
-        }),
+        },
       }),
     );
-    expect(prisma.session.create).toHaveBeenCalled();
-    expect((response as unknown as { cookie: jest.Mock }).cookie).toHaveBeenCalledTimes(2);
+    expect(prisma.session.create).not.toHaveBeenCalled();
     expect(result).toEqual({
       user: {
         id: 7,
@@ -125,13 +117,9 @@ describe('AuthService', () => {
     const result = await service.forgotPassword({ email: 'reset@example.com' });
 
     expect(prisma.authToken.create).toHaveBeenCalled();
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-        email: 'reset@example.com',
-        resetUrl: expect.stringContaining('/reset-password/'),
-      }),
-    );
+    expect(result.success).toBe(true);
+    expect(result.email).toBe('reset@example.com');
+    expect(result.resetUrl).toContain('/reset-password/');
   });
 
   it('rejects unlinking the last available auth method', async () => {
@@ -150,9 +138,9 @@ describe('AuthService', () => {
 
     const service = new AuthService(prisma as never, jwtService as never);
 
-    await expect(service.unlinkProvider(8, AuthProvider.GITHUB)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.unlinkProvider(8, AuthProvider.GITHUB),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('fails sign in when the password does not match', async () => {
@@ -166,7 +154,8 @@ describe('AuthService', () => {
       username: 'student',
       fullName: null,
       avatarUrl: null,
-      passwordHash: '$2b$10$Kl35MOHBglC6mLztVPKWWOo/2T4/eGUa31esKPXcztIaruCdVMYOW',
+      passwordHash:
+        '$2b$10$Kl35MOHBglC6mLztVPKWWOo/2T4/eGUa31esKPXcztIaruCdVMYOW',
       status: UserStatus.ACTIVE,
     });
 
@@ -190,7 +179,11 @@ describe('AuthService', () => {
     const service = new AuthService(prisma as never, jwtService as never);
 
     await expect(
-      service.buildProviderAuthorizationUrl(AuthProvider.GITHUB, '/', 'sign-in'),
+      service.buildProviderAuthorizationUrl(
+        AuthProvider.GITHUB,
+        '/',
+        'sign-in',
+      ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });

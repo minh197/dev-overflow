@@ -14,9 +14,14 @@ import { signIn } from "@/lib/api/auth-api";
 type SignInPageProps = {
   nextPath: string;
   initialEmail?: string;
+  showSignupSuccess?: boolean;
 };
 
-export function SignInPage({ nextPath, initialEmail = "" }: SignInPageProps) {
+export function SignInPage({
+  nextPath,
+  initialEmail = "",
+  showSignupSuccess = false,
+}: SignInPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState(initialEmail);
@@ -55,6 +60,12 @@ export function SignInPage({ nextPath, initialEmail = "" }: SignInPageProps) {
           });
         }}
       >
+        {showSignupSuccess && (
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            Account created successfully. Please sign in to continue.
+          </div>
+        )}
+
         <AuthInput
           id="sign-in-email"
           type="email"

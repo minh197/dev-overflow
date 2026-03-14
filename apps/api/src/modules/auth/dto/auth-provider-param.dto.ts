@@ -4,7 +4,7 @@ import { IsIn, IsOptional, IsString } from 'class-validator';
 const authProviders = ['github', 'google'] as const;
 
 export class AuthProviderParamDto {
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsIn(authProviders)

@@ -18,7 +18,8 @@ describe('SearchService', () => {
           .mockResolvedValueOnce([
             {
               id: 501,
-              bodyMdx: 'Use the app router and cache server work when possible.',
+              bodyMdx:
+                'Use the app router and cache server work when possible.',
               createdAt: new Date('2026-03-14T01:00:00.000Z'),
               user: { username: 'sam', fullName: 'Sam Reed' },
               parentQuestion: {

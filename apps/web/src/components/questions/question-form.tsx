@@ -1,7 +1,7 @@
 "use client";
 
 import type { QuestionFormValues } from "@/lib/homepage-types";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type TagOption = {
   id: number;
@@ -31,13 +31,6 @@ export function QuestionForm({
   const [bodyMdx, setBodyMdx] = useState(initialValues?.bodyMdx ?? "");
   const [tagIds, setTagIds] = useState<number[]>(initialValues?.tagIds ?? []);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!initialValues) return;
-    setTitle(initialValues.title);
-    setBodyMdx(initialValues.bodyMdx);
-    setTagIds(initialValues.tagIds);
-  }, [initialValues]);
 
   const tagsById = useMemo(
     () => new Map(tagOptions.map((tag) => [tag.id, tag.label])),

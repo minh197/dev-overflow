@@ -371,7 +371,11 @@ export class QuestionsService {
     return this.getQuestion(created, currentUser);
   }
 
-  async updateQuestion(id: number, actor: AuthUser | null, dto: UpdateQuestionDto) {
+  async updateQuestion(
+    id: number,
+    actor: AuthUser | null,
+    dto: UpdateQuestionDto,
+  ) {
     const currentUser = this.assertAuthenticated(actor);
     const existing = await this.getQuestionByIdOrThrow(id);
     this.assertCanManage(currentUser, existing.userId);

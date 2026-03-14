@@ -31,12 +31,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('sign-up')
-  signUp(
-    @Body() body: SignUpDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    return this.authService.signUp(body, request, response);
+  signUp(@Body() body: SignUpDto) {
+    return this.authService.signUp(body);
   }
 
   @Post('sign-in')
@@ -118,7 +114,10 @@ export class AuthController {
     @Param() params: AuthProviderParamDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.authService.unlinkProvider(user.id, this.toProvider(params.provider));
+    return this.authService.unlinkProvider(
+      user.id,
+      this.toProvider(params.provider),
+    );
   }
 
   @Get(':provider')
@@ -127,11 +126,12 @@ export class AuthController {
     @Query() query: OAuthQueryDto,
     @Res() response: Response,
   ) {
-    const authorizationUrl = await this.authService.buildProviderAuthorizationUrl(
-      this.toProvider(params.provider),
-      query.next,
-      'sign-in',
-    );
+    const authorizationUrl =
+      await this.authService.buildProviderAuthorizationUrl(
+        this.toProvider(params.provider),
+        query.next,
+        'sign-in',
+      );
 
     response.redirect(authorizationUrl);
   }

@@ -6,6 +6,7 @@ type SignInRouteProps = {
   searchParams: Promise<{
     next?: string;
     email?: string;
+    signup?: string;
   }>;
 };
 
@@ -17,6 +18,7 @@ export default async function SignInRoute({ searchParams }: SignInRouteProps) {
       <SignInPage
         nextPath={resolvedSearchParams.next ?? "/"}
         initialEmail={resolvedSearchParams.email}
+        showSignupSuccess={resolvedSearchParams.signup === "success"}
       />
     </Suspense>
   );

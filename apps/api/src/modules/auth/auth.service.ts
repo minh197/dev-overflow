@@ -49,22 +49,6 @@ type OAuthStatePayload = {
   type: 'oauth-state';
 };
 
-type SessionRecord = Prisma.SessionGetPayload<{
-  include: {
-    user: {
-      select: {
-        id: true;
-        email: true;
-        username: true;
-        fullName: true;
-        avatarUrl: true;
-        passwordHash: true;
-        status: true;
-      };
-    };
-  };
-}>;
-
 const authUserSelect = {
   id: true,
   email: true,
@@ -80,7 +64,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async signUp(dto: SignUpDto, request: Request, response: Response) {
+  async signUp(dto: SignUpDto) {
     const email = this.normalizeEmail(dto.email);
     const username = dto.username.trim();
 
@@ -113,7 +97,6 @@ export class AuthService {
       select: authUserSelect,
     });
 
-    await this.createSessionForUser(user, request, response);
     return { user };
   }
 
@@ -132,7 +115,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password.');
     }
@@ -159,9 +145,13 @@ export class AuthService {
   }
 
   async refresh(request: Request, response: Response) {
-    const session = await this.rotateSessionFromRefreshToken(request, response, {
-      required: true,
-    });
+    const session = await this.rotateSessionFromRefreshToken(
+      request,
+      response,
+      {
+        required: true,
+      },
+    );
     if (!session) {
       throw new UnauthorizedException('Authentication is required.');
     }
@@ -177,9 +167,13 @@ export class AuthService {
       return user;
     }
 
-    const session = await this.rotateSessionFromRefreshToken(request, response, {
-      required: false,
-    });
+    const session = await this.rotateSessionFromRefreshToken(
+      request,
+      response,
+      {
+        required: false,
+      },
+    );
 
     if (!session) {
       throw new UnauthorizedException('Authentication is required.');
@@ -222,9 +216,7 @@ export class AuthService {
       return {
         success: true,
         email,
-        ...(process.env.NODE_ENV !== 'production'
-          ? { resetUrl }
-          : {}),
+        ...(process.env.NODE_ENV !== 'production' ? { resetUrl } : {}),
       };
     }
 
@@ -290,9 +282,12 @@ export class AuthService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
-        secret: this.getAccessTokenSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
+        token,
+        {
+          secret: this.getAccessTokenSecret(),
+        },
+      );
 
       if (payload.type !== 'access') {
         throw new UnauthorizedException('Invalid token.');
@@ -317,10 +312,12 @@ export class AuthService {
       }
 
       const typedRequest = request as AuthenticatedRequest;
-      typedRequest.authSessionId = session.id;
-      typedRequest.user = session.user;
+      const sessionId = session.id;
+      const user = session.user as AuthUser;
+      typedRequest.authSessionId = sessionId;
+      typedRequest.user = user;
 
-      return session.user;
+      return user;
     } catch (error) {
       if (options.required) {
         throw error instanceof UnauthorizedException
@@ -382,9 +379,12 @@ export class AuthService {
     request: Request,
     response: Response,
   ) {
-    const payload = await this.jwtService.verifyAsync<OAuthStatePayload>(state, {
-      secret: this.getAccessTokenSecret(),
-    });
+    const payload = await this.jwtService.verifyAsync<OAuthStatePayload>(
+      state,
+      {
+        secret: this.getAccessTokenSecret(),
+      },
+    );
 
     if (payload.type !== 'oauth-state' || payload.provider !== provider) {
       throw new UnauthorizedException('Invalid provider callback state.');
@@ -394,10 +394,15 @@ export class AuthService {
 
     if (payload.intent === 'link') {
       if (!payload.userId) {
-        throw new UnauthorizedException('Missing user context for account link.');
+        throw new UnauthorizedException(
+          'Missing user context for account link.',
+        );
       }
 
-      const linkedUser = await this.linkProviderAccount(payload.userId, profile);
+      const linkedUser = await this.linkProviderAccount(
+        payload.userId,
+        profile,
+      );
       await this.createSessionForUser(linkedUser, request, response);
       response.redirect(
         `${this.getWebBaseUrl()}${this.normalizeNextPath(payload.nextPath)}?linked=${this.getProviderSlug(provider)}`,
@@ -787,19 +792,22 @@ export class AuthService {
   }
 
   private async fetchGitHubProfile(code: string): Promise<ProviderProfile> {
-    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
+    const tokenResponse = await fetch(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: this.getProviderClientId(AuthProvider.GITHUB),
+          client_secret: this.getProviderClientSecret(AuthProvider.GITHUB),
+          code,
+          redirect_uri: `${this.getApiBaseUrl()}/auth/github/callback`,
+        }),
       },
-      body: JSON.stringify({
-        client_id: this.getProviderClientId(AuthProvider.GITHUB),
-        client_secret: this.getProviderClientSecret(AuthProvider.GITHUB),
-        code,
-        redirect_uri: `${this.getApiBaseUrl()}/auth/github/callback`,
-      }),
-    });
+    );
 
     if (!tokenResponse.ok) {
       throw new UnauthorizedException('GitHub authorization failed.');
@@ -1003,7 +1011,9 @@ export class AuthService {
       }
     }
 
-    throw new ConflictException('Unable to reserve a username for that account.');
+    throw new ConflictException(
+      'Unable to reserve a username for that account.',
+    );
   }
 
   private getAccessTokenSecret() {
@@ -1024,14 +1034,14 @@ export class AuthService {
 
   private getProviderClientId(provider: AuthProvider) {
     return provider === AuthProvider.GITHUB
-      ? process.env.GITHUB_CLIENT_ID ?? ''
-      : process.env.GOOGLE_CLIENT_ID ?? '';
+      ? (process.env.GITHUB_CLIENT_ID ?? '')
+      : (process.env.GOOGLE_CLIENT_ID ?? '');
   }
 
   private getProviderClientSecret(provider: AuthProvider) {
     return provider === AuthProvider.GITHUB
-      ? process.env.GITHUB_CLIENT_SECRET ?? ''
-      : process.env.GOOGLE_CLIENT_SECRET ?? '';
+      ? (process.env.GITHUB_CLIENT_SECRET ?? '')
+      : (process.env.GOOGLE_CLIENT_SECRET ?? '');
   }
 
   private assertProviderIsConfigured(provider: AuthProvider) {

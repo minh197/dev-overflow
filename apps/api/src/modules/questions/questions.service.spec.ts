@@ -26,7 +26,9 @@ describe('QuestionsService', () => {
     const prisma = {
       post: { findFirst: jest.fn() },
       tag: { findMany: jest.fn() },
-      $transaction: jest.fn(async (callback) => callback(tx)),
+      $transaction: jest.fn((callback: (transaction: typeof tx) => unknown) =>
+        callback(tx),
+      ),
       __tx: tx,
     };
 
@@ -81,7 +83,9 @@ describe('QuestionsService', () => {
 
     const prisma = makePrismaMock();
     prisma.post.findFirst.mockResolvedValue(baseQuestionRow);
-    prisma.__tx.questionTag.groupBy.mockResolvedValue([{ tagId: 7, _count: { tagId: 0 } }]);
+    prisma.__tx.questionTag.groupBy.mockResolvedValue([
+      { tagId: 7, _count: { tagId: 0 } },
+    ]);
 
     const service = new QuestionsService(prisma as never);
 

@@ -126,7 +126,11 @@ export class SearchService {
             },
           ],
         },
-        orderBy: [{ upVoteCount: 'desc' }, { answerCount: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [
+          { upVoteCount: 'desc' },
+          { answerCount: 'desc' },
+          { createdAt: 'desc' },
+        ],
         take: limitPerType,
         select: {
           id: true,
