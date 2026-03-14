@@ -27,9 +27,7 @@ describe('QuestionsService', () => {
       user: { findFirst: jest.fn() },
       post: { findFirst: jest.fn() },
       tag: { findMany: jest.fn() },
-      $transaction: jest.fn(async (callback: (txClient: typeof tx) => unknown) =>
-        callback(tx),
-      ),
+      $transaction: jest.fn(async (callback) => callback(tx)),
       __tx: tx,
     };
 
@@ -60,6 +58,7 @@ describe('QuestionsService', () => {
       avatarUrl: null,
     },
     questionTags: [{ tag: { id: 7, displayName: 'nestjs' } }],
+    answers: [],
   };
 
   afterEach(() => {

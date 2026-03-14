@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api/api-client";
 import type {
   FeedFilterKey,
+  GlobalSearchResponse,
   HotNetworkItem,
   PopularTag,
   QuestionFormValues,
@@ -37,6 +38,15 @@ type ApiQuestion = {
     id: number;
     questionTags?: ApiQuestionTag[];
   } | null;
+  answers?: ApiAnswer[];
+};
+
+type ApiAnswer = {
+  id: number;
+  bodyMdx: string;
+  createdAt: string;
+  upVoteCount: number;
+  user: ApiUser;
 };
 
 type ApiHotQuestion = {
@@ -60,6 +70,48 @@ type ApiAuthMe = {
   username: string;
   fullName: string | null;
   avatarUrl: string | null;
+};
+
+type ApiGlobalSearchQuestion = {
+  id: string;
+  title: string;
+  href: string;
+  authorName: string;
+  createdAtLabel: string;
+  tags: string[];
+};
+
+type ApiGlobalSearchAnswer = {
+  id: string;
+  excerpt: string;
+  href: string;
+  authorName: string;
+  questionTitle: string;
+  createdAtLabel: string;
+};
+
+type ApiGlobalSearchUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  href: string;
+  reputationLabel: string;
+};
+
+type ApiGlobalSearchTag = {
+  id: string;
+  slug: string;
+  displayName: string;
+  href: string;
+  countLabel: string;
+};
+
+type ApiGlobalSearchResponse = {
+  query: string;
+  questions: ApiGlobalSearchQuestion[];
+  answers: ApiGlobalSearchAnswer[];
+  users: ApiGlobalSearchUser[];
+  tags: ApiGlobalSearchTag[];
 };
 
 const feedSortMap: Record<FeedFilterKey, string> = {
@@ -115,6 +167,16 @@ function mapQuestion(item: ApiQuestion): QuestionSummary {
       item.question?.questionTags?.map((qt) => ({
         id: String(qt.tag.id),
         displayName: qt.tag.displayName,
+      })) ?? [],
+    answerItems:
+      item.answers?.map((answer) => ({
+        id: String(answer.id),
+        bodyMdx: answer.bodyMdx,
+        authorName: answer.user.fullName ?? answer.user.username,
+        authorHandle: `@${answer.user.username}`,
+        avatarText: initialsFromUser(answer.user),
+        createdAtLabel: formatRelativeFromNow(answer.createdAt),
+        votes: answer.upVoteCount,
       })) ?? [],
   };
 }
@@ -180,5 +242,16 @@ export async function fetchPopularTags() {
 
 export async function fetchAuthMe() {
   const { data } = await apiClient.get<ApiAuthMe>("/auth/me");
+  return data;
+}
+
+export async function fetchGlobalSearch(query: string): Promise<GlobalSearchResponse> {
+  const { data } = await apiClient.get<ApiGlobalSearchResponse>("/search/global", {
+    params: {
+      q: query,
+      limitPerType: 5,
+    },
+  });
+
   return data;
 }

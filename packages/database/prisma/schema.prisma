@@ -104,29 +104,33 @@ model User {
 }
 
 model Post {
-  id            Int        @id @default(autoincrement())
-  uuid          String     @unique
-  userId        Int        @map("user_id")
-  title         String?
-  bodyMdx       String     @map("body_mdx")
-  type          PostType
-  status        PostStatus @default(ACTIVE)
-  viewCount     Int        @default(0) @map("view_count")
-  answerCount   Int        @default(0) @map("answer_count")
-  upVoteCount   Int        @default(0) @map("up_vote_count")
-  downVoteCount Int        @default(0) @map("down_vote_count")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  id               Int        @id @default(autoincrement())
+  uuid             String     @unique
+  userId           Int        @map("user_id")
+  parentQuestionId Int?       @map("parent_question_id")
+  title            String?
+  bodyMdx          String     @map("body_mdx")
+  type             PostType
+  status           PostStatus @default(ACTIVE)
+  viewCount        Int        @default(0) @map("view_count")
+  answerCount      Int        @default(0) @map("answer_count")
+  upVoteCount      Int        @default(0) @map("up_vote_count")
+  downVoteCount    Int        @default(0) @map("down_vote_count")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  user      User      @relation(fields: [userId], references: [id])
-  postViews PostView[]
-  questionTags QuestionTag[]
-  aiAnswers    AiAnswer[]
-  votes     Vote[]
-  bookmarks Bookmark[]
-  comments  Comment[]
+  user           User   @relation(fields: [userId], references: [id])
+  parentQuestion Post?  @relation("QuestionAnswers", fields: [parentQuestionId], references: [id], onDelete: Cascade)
+  answers        Post[] @relation("QuestionAnswers")
+  postViews      PostView[]
+  questionTags   QuestionTag[]
+  aiAnswers      AiAnswer[]
+  votes          Vote[]
+  bookmarks      Bookmark[]
+  comments       Comment[]
 
   @@index([type, status, createdAt], map: "idx_posts_listing")
+  @@index([parentQuestionId, type], map: "idx_posts_parent_question")
   @@index([userId, type], map: "idx_posts_user")
   @@map("posts")
 }

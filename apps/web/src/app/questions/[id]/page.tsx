@@ -65,79 +65,118 @@ export default function QuestionDetailPage() {
         </div>
       )}
       {question && (
-        <article className="rounded-2xl border border-white/10 bg-black/40 p-8">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <h1 className="text-3xl font-semibold text-[var(--text-strong)]">
-              {question.title}
-            </h1>
+        <div className="space-y-6">
+          <article className="rounded-2xl border border-white/10 bg-black/40 p-8">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h1 className="text-3xl font-semibold text-[var(--text-strong)]">
+                {question.title}
+              </h1>
 
-            {(question.canEdit || question.canDelete) && (
-              <div className="relative">
-                <button
-                  type="button"
-                  aria-label="Question actions"
-                  onClick={() => setIsActionsOpen((open) => !open)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-sm text-[var(--text-soft)] transition-colors hover:bg-white/10"
+              {(question.canEdit || question.canDelete) && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label="Question actions"
+                    onClick={() => setIsActionsOpen((open) => !open)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-sm text-[var(--text-soft)] transition-colors hover:bg-white/10"
+                  >
+                    ⋯
+                  </button>
+                  {isActionsOpen && (
+                    <div className="absolute right-0 top-10 z-10 min-w-32 rounded-lg border border-white/10 bg-[var(--panel-bg)] p-1">
+                      {question.canEdit && (
+                        <Link
+                          href={`/questions/${question.postId}/edit`}
+                          onClick={() => setIsActionsOpen(false)}
+                          className="block rounded-md px-2 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-white/10"
+                        >
+                          Edit
+                        </Link>
+                      )}
+                      {question.canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsActionsOpen(false);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="block w-full rounded-md px-2 py-1.5 text-left text-xs text-red-200 transition-colors hover:bg-red-500/20"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              {question.tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="rounded-md bg-[var(--chip-bg)] px-2 py-1 text-[11px] text-[var(--text-soft)]"
                 >
-                  ⋯
-                </button>
-                {isActionsOpen && (
-                  <div className="absolute right-0 top-10 z-10 min-w-32 rounded-lg border border-white/10 bg-[var(--panel-bg)] p-1">
-                    {question.canEdit && (
-                      <Link
-                        href={`/questions/${question.postId}/edit`}
-                        onClick={() => setIsActionsOpen(false)}
-                        className="block rounded-md px-2 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-white/10"
-                      >
-                        Edit
-                      </Link>
-                    )}
-                    {question.canDelete && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsActionsOpen(false);
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="block w-full rounded-md px-2 py-1.5 text-left text-xs text-red-200 transition-colors hover:bg-red-500/20"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                )}
+                  {tag.displayName}
+                </span>
+              ))}
+            </div>
+
+            <p className="mb-8 text-sm leading-7 text-[var(--text-muted)]">
+              {question.bodyMdx}
+            </p>
+
+            <div className="flex items-center gap-4 text-xs text-[var(--text-soft)]">
+              <span>{question.votes} Votes</span>
+              <span>{question.answers} Answers</span>
+              <span>{question.views} Views</span>
+              <span>{question.createdAtLabel}</span>
+            </div>
+
+            {errorMessage && (
+              <div className="mt-6 rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">
+                {errorMessage}
               </div>
             )}
-          </div>
+          </article>
 
-          <div className="mb-4 flex flex-wrap gap-2">
-            {question.tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="rounded-md bg-[var(--chip-bg)] px-2 py-1 text-[11px] text-[var(--text-soft)]"
-              >
-                {tag.displayName}
-              </span>
-            ))}
-          </div>
+          {question.answerItems && question.answerItems.length > 0 && (
+            <section className="rounded-2xl border border-white/10 bg-[var(--surface)] p-6">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-[var(--text-strong)]">
+                  Answers
+                </h2>
+                <span className="text-xs text-[var(--text-soft)]">
+                  {question.answerItems.length} result
+                  {question.answerItems.length === 1 ? "" : "s"}
+                </span>
+              </div>
 
-          <p className="mb-8 text-sm leading-7 text-[var(--text-muted)]">
-            {question.bodyMdx}
-          </p>
-
-          <div className="flex items-center gap-4 text-xs text-[var(--text-soft)]">
-            <span>{question.votes} Votes</span>
-            <span>{question.answers} Answers</span>
-            <span>{question.views} Views</span>
-            <span>{question.createdAtLabel}</span>
-          </div>
-
-          {errorMessage && (
-            <div className="mt-6 rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">
-              {errorMessage}
-            </div>
+              <div className="space-y-4">
+                {question.answerItems.map((answer) => (
+                  <article
+                    key={answer.id}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                  >
+                    <div className="mb-3 flex items-center gap-3 text-xs text-[var(--text-soft)]">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-semibold text-indigo-200">
+                        {answer.avatarText}
+                      </span>
+                      <span className="text-[var(--text-muted)]">{answer.authorName}</span>
+                      <span>·</span>
+                      <span>{answer.createdAtLabel}</span>
+                      <span>·</span>
+                      <span>{answer.votes} Votes</span>
+                    </div>
+                    <p className="text-sm leading-7 text-[var(--text-muted)]">
+                      {answer.bodyMdx}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
-        </article>
+        </div>
       )}
 
       {isDeleteModalOpen && (

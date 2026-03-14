@@ -35,10 +35,24 @@ type ListQuestionRow = {
   questionTags: QuestionTagRow[];
 };
 
+type QuestionAnswerRow = {
+  id: number;
+  bodyMdx: string;
+  createdAt: Date;
+  upVoteCount: number;
+  user: {
+    id: number;
+    fullName: string | null;
+    username: string;
+    avatarUrl: string | null;
+  };
+};
+
 type QuestionDetailRow = ListQuestionRow & {
   userId: number;
   bodyMdx: string;
   status: PostStatus;
+  answers: QuestionAnswerRow[];
 };
 
 type Actor = {
@@ -183,6 +197,27 @@ export class QuestionsService {
             },
           },
         },
+        answers: {
+          where: {
+            type: PostType.ANSWER,
+            status: PostStatus.ACTIVE,
+          },
+          orderBy: [{ upVoteCount: 'desc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            bodyMdx: true,
+            createdAt: true,
+            upVoteCount: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
       },
     })) as QuestionDetailRow | null;
 
@@ -319,6 +354,13 @@ export class QuestionsService {
       ...this.toQuestionSummary(post, actor),
       bodyMdx: post.bodyMdx,
       status: post.status,
+      answers: post.answers.map((answer) => ({
+        id: answer.id,
+        bodyMdx: answer.bodyMdx,
+        createdAt: answer.createdAt,
+        upVoteCount: answer.upVoteCount,
+        user: answer.user,
+      })),
     };
   }
 

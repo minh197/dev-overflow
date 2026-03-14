@@ -5,16 +5,9 @@ import type {
   PopularTag,
   QuestionSummary,
 } from "@/lib/homepage-types";
+import { getNavItems } from "@/lib/navigation";
 
-const navItems: NavItem[] = [
-  { id: "home", label: "Home", href: "#", active: true },
-  { id: "collections", label: "Collections", href: "#" },
-  { id: "jobs", label: "Find Jobs", href: "#" },
-  { id: "tags", label: "Tags", href: "#" },
-  { id: "communities", label: "Communities", href: "#" },
-  { id: "ask", label: "Ask a Question", href: "#" },
-  { id: "recommended", label: "Recommended Qs", href: "#" },
-];
+const navItems: NavItem[] = getNavItems("home");
 
 const filters: FeedFilter[] = [
   { key: "newest", label: "Newest" },
@@ -26,6 +19,7 @@ const filters: FeedFilter[] = [
 const baseQuestions: QuestionSummary[] = [
   {
     postId: "q-1001",
+    authorId: 101,
     title:
       "The Lightning Component cLWC_PizzaTracker generated invalid output for field status. Error: How to solve this",
     authorName: "Santresh",
@@ -43,6 +37,7 @@ const baseQuestions: QuestionSummary[] = [
   },
   {
     postId: "q-1002",
+    authorId: 102,
     title:
       "An HTML table where specific cells come from values in a Google Sheet identified by their neighboring cell",
     authorName: "Santresh",
@@ -60,6 +55,7 @@ const baseQuestions: QuestionSummary[] = [
   },
   {
     postId: "q-1003",
+    authorId: 103,
     title:
       "JavaScript validation for a form stops the form data from being submitted to mysql database",
     authorName: "Santresh",

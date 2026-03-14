@@ -1,13 +1,24 @@
+import type { AppIcon } from "@/lib/icons";
+
 export type FeedFilterKey =
   | "newest"
   | "recommended"
   | "frequent"
   | "unanswered";
 
+export type NavItemId =
+  | "home"
+  | "collections"
+  | "jobs"
+  | "tags"
+  | "communities"
+  | "ask";
+
 export type NavItem = {
-  id: string;
+  id: NavItemId;
   label: string;
   href: string;
+  icon: AppIcon;
   active?: boolean;
 };
 
@@ -36,6 +47,17 @@ export type QuestionSummary = {
   canEdit?: boolean;
   canDelete?: boolean;
   tags: QuestionTag[];
+  answerItems?: QuestionAnswer[];
+};
+
+export type QuestionAnswer = {
+  id: string;
+  bodyMdx: string;
+  authorName: string;
+  authorHandle: string;
+  avatarText: string;
+  createdAtLabel: string;
+  votes: number;
 };
 
 export type HotNetworkItem = {
@@ -48,6 +70,50 @@ export type PopularTag = {
   tagId?: number;
   name: string;
   countLabel: string;
+};
+
+export type GlobalSearchSection = "questions" | "answers" | "users" | "tags";
+
+export type GlobalSearchQuestionResult = {
+  id: string;
+  title: string;
+  href: string;
+  authorName: string;
+  createdAtLabel: string;
+  tags: string[];
+};
+
+export type GlobalSearchAnswerResult = {
+  id: string;
+  excerpt: string;
+  href: string;
+  authorName: string;
+  questionTitle: string;
+  createdAtLabel: string;
+};
+
+export type GlobalSearchUserResult = {
+  id: string;
+  username: string;
+  displayName: string;
+  href: string;
+  reputationLabel: string;
+};
+
+export type GlobalSearchTagResult = {
+  id: string;
+  slug: string;
+  displayName: string;
+  href: string;
+  countLabel: string;
+};
+
+export type GlobalSearchResponse = {
+  query: string;
+  questions: GlobalSearchQuestionResult[];
+  answers: GlobalSearchAnswerResult[];
+  users: GlobalSearchUserResult[];
+  tags: GlobalSearchTagResult[];
 };
 
 export type QuestionFormValues = {
