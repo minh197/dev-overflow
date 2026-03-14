@@ -2,6 +2,7 @@
 
 import { QuestionForm } from "@/components/questions/question-form";
 import { QuestionsLayout } from "@/components/questions/questions-layout";
+import { getApiErrorMessage, isUnauthorizedError } from "@/lib/api/api-errors";
 import { createQuestion, fetchPopularTags } from "@/lib/api/homepage-api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -41,8 +42,15 @@ export default function AskQuestionPage() {
       });
       router.push(`/questions/${question.postId}`);
     },
-    onError: () => {
-      setErrorMessage("Unable to create question. Please try again.");
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        router.push("/sign-in?next=/questions/ask");
+        return;
+      }
+
+      setErrorMessage(
+        getApiErrorMessage(error, "Unable to create question. Please try again."),
+      );
     },
   });
 

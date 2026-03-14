@@ -7,10 +7,10 @@ import { LeftSidebar } from "@/components/home/left-sidebar";
 import { RightRail } from "@/components/home/right-rail";
 import { GlobalSearch } from "@/components/layout/global-search";
 import {
-  fetchAuthMe,
   fetchHotNetwork,
   fetchPopularTags,
 } from "@/lib/api/homepage-api";
+import { fetchAuthMe } from "@/lib/api/auth-api";
 import type { NavItemId } from "@/lib/homepage-types";
 import { getInitials, getNavItems } from "@/lib/navigation";
 
@@ -44,6 +44,7 @@ export function AppShell({
   const { data: authMe } = useQuery({
     queryKey: ["auth-me"],
     queryFn: fetchAuthMe,
+    staleTime: 30_000,
   });
 
   const navItems = useMemo(() => getNavItems(activeNavId), [activeNavId]);
@@ -55,7 +56,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-muted)]">
       <div className="mx-auto flex max-w-[1400px]">
-        <LeftSidebar navItems={navItems} />
+        <LeftSidebar navItems={navItems} authUser={authMe} />
 
         <main className="flex min-h-screen flex-1 gap-6 px-6 py-5">
           <section className="min-w-0 flex-1">
@@ -63,6 +64,7 @@ export function AppShell({
               <GlobalSearch
                 placeholder={searchPlaceholder}
                 userInitials={userInitials}
+                authUser={authMe}
               />
             </Suspense>
             {children}

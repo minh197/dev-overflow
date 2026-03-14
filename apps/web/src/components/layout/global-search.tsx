@@ -13,6 +13,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchGlobalSearch } from "@/lib/api/homepage-api";
+import type { AuthUser } from "@/lib/auth-types";
 import type {
   GlobalSearchAnswerResult,
   GlobalSearchQuestionResult,
@@ -25,6 +26,7 @@ import type {
 type GlobalSearchProps = {
   placeholder?: string;
   userInitials?: string;
+  authUser?: AuthUser | null;
 };
 
 type SearchChip = {
@@ -99,6 +101,7 @@ function getItemsForSection(
 export function GlobalSearch({
   placeholder = "Search anything globally",
   userInitials = "JS",
+  authUser,
 }: GlobalSearchProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -359,10 +362,15 @@ export function GlobalSearch({
         </button>
         <button
           type="button"
-          aria-label="User profile"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700"
+          aria-label={authUser ? "Open profile" : "Sign in"}
+          onClick={() => router.push(authUser ? "/" : "/sign-in")}
+          className={`inline-flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-xs font-semibold ${
+            authUser
+              ? "bg-sky-100 text-sky-700"
+              : "border border-white/10 bg-[var(--surface)] text-[var(--text-muted)]"
+          }`}
         >
-          {userInitials}
+          {authUser ? userInitials : "Sign in"}
         </button>
       </header>
 

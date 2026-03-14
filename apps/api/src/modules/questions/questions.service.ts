@@ -2,9 +2,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PostStatus, PostType, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GetQuestionsQueryDto } from './dto/get-questions-query.dto';
 import { GetHotQuestionsQueryDto } from './dto/get-hot-questions-query.dto';
@@ -55,48 +57,12 @@ type QuestionDetailRow = ListQuestionRow & {
   answers: QuestionAnswerRow[];
 };
 
-type Actor = {
-  id: number;
-  username: string;
-  fullName: string | null;
-  avatarUrl: string | null;
-};
-
 @Injectable()
 export class QuestionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveActor(): Promise<Actor> {
-    const actor =
-      (await this.prisma.user.findFirst({
-        where: { username: 'seed_alex' },
-        select: {
-          id: true,
-          username: true,
-          fullName: true,
-          avatarUrl: true,
-        },
-      })) ??
-      (await this.prisma.user.findFirst({
-        where: { status: 'ACTIVE' },
-        select: {
-          id: true,
-          username: true,
-          fullName: true,
-          avatarUrl: true,
-        },
-      }));
-
-    if (!actor) {
-      throw new NotFoundException(
-        'No dev user found. Run prisma seed to enable question mutations.',
-      );
-    }
-
-    return actor;
-  }
-
-  private isAdmin(actor: Actor): boolean {
+  private isAdmin(actor: AuthUser | null): boolean {
+    if (!actor) return false;
     const usernames = (process.env.QUESTION_ADMIN_USERNAMES ?? '')
       .split(',')
       .map((value) => value.trim())
@@ -104,8 +70,10 @@ export class QuestionsService {
     return usernames.includes(actor.username);
   }
 
-  private toQuestionSummary(post: ListQuestionRow, actor: Actor) {
-    const canManage = post.user.id === actor.id || this.isAdmin(actor);
+  private toQuestionSummary(post: ListQuestionRow, actor: AuthUser | null) {
+    const canManage = actor
+      ? post.user.id === actor.id || this.isAdmin(actor)
+      : false;
     return {
       id: post.id,
       userId: post.user.id,
@@ -227,7 +195,7 @@ export class QuestionsService {
     return post;
   }
 
-  private assertCanManage(actor: Actor, ownerUserId: number) {
+  private assertCanManage(actor: AuthUser, ownerUserId: number) {
     const canManage = ownerUserId === actor.id || this.isAdmin(actor);
     if (!canManage) {
       throw new ForbiddenException(
@@ -236,8 +204,14 @@ export class QuestionsService {
     }
   }
 
-  async listQuestions(query: GetQuestionsQueryDto) {
-    const actor = await this.resolveActor();
+  private assertAuthenticated(actor: AuthUser | null): AuthUser {
+    if (!actor) {
+      throw new UnauthorizedException('Authentication is required.');
+    }
+    return actor;
+  }
+
+  async listQuestions(query: GetQuestionsQueryDto, actor: AuthUser | null) {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
     const sort = query.sort ?? QuestionsSort.NEWEST;
@@ -346,8 +320,7 @@ export class QuestionsService {
     }));
   }
 
-  async getQuestion(id: number) {
-    const actor = await this.resolveActor();
+  async getQuestion(id: number, actor: AuthUser | null) {
     const post = await this.getQuestionByIdOrThrow(id);
 
     return {
@@ -364,15 +337,15 @@ export class QuestionsService {
     };
   }
 
-  async createQuestion(dto: CreateQuestionDto) {
-    const actor = await this.resolveActor();
+  async createQuestion(actor: AuthUser | null, dto: CreateQuestionDto) {
+    const currentUser = this.assertAuthenticated(actor);
     const tagIds = await this.assertTagIdsExist(dto.tagIds);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const post = await tx.post.create({
         data: {
           uuid: randomUUID(),
-          userId: actor.id,
+          userId: currentUser.id,
           title: dto.title.trim(),
           bodyMdx: dto.bodyMdx.trim(),
           type: PostType.QUESTION,
@@ -395,13 +368,13 @@ export class QuestionsService {
       return post.id;
     });
 
-    return this.getQuestion(created);
+    return this.getQuestion(created, currentUser);
   }
 
-  async updateQuestion(id: number, dto: UpdateQuestionDto) {
-    const actor = await this.resolveActor();
+  async updateQuestion(id: number, actor: AuthUser | null, dto: UpdateQuestionDto) {
+    const currentUser = this.assertAuthenticated(actor);
     const existing = await this.getQuestionByIdOrThrow(id);
-    this.assertCanManage(actor, existing.userId);
+    this.assertCanManage(currentUser, existing.userId);
 
     const nextTagIds = dto.tagIds
       ? await this.assertTagIdsExist(dto.tagIds)
@@ -431,13 +404,13 @@ export class QuestionsService {
       }
     });
 
-    return this.getQuestion(id);
+    return this.getQuestion(id, currentUser);
   }
 
-  async deleteQuestion(id: number) {
-    const actor = await this.resolveActor();
+  async deleteQuestion(id: number, actor: AuthUser | null) {
+    const currentUser = this.assertAuthenticated(actor);
     const existing = await this.getQuestionByIdOrThrow(id);
-    this.assertCanManage(actor, existing.userId);
+    this.assertCanManage(currentUser, existing.userId);
 
     const tagIds = existing.questionTags.map((row) => row.tag.id);
 

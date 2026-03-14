@@ -1,4 +1,9 @@
-import { PostStatus, PostType, PrismaClient } from '@prisma/client';
+import {
+  AuthProvider,
+  PostStatus,
+  PostType,
+  PrismaClient,
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -8,24 +13,41 @@ const usersSeed = [
     username: 'seed_alex',
     fullName: 'Alex Tran',
     avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Alex',
+    emailVerifiedAt: new Date(),
+    passwordHash:
+      '$2b$10$Kl35MOHBglC6mLztVPKWWOo/2T4/eGUa31esKPXcztIaruCdVMYOW',
   },
   {
     email: 'seed.mina@devoverflow.dev',
     username: 'seed_mina',
     fullName: 'Mina Nguyen',
     avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Mina',
+    emailVerifiedAt: new Date(),
   },
   {
     email: 'seed.ravi@devoverflow.dev',
     username: 'seed_ravi',
     fullName: 'Ravi Patel',
     avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Ravi',
+    emailVerifiedAt: new Date(),
   },
   {
     email: 'seed.sophia@devoverflow.dev',
     username: 'seed_sophia',
     fullName: 'Sophia Lee',
     avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Sophia',
+    emailVerifiedAt: new Date(),
+    passwordHash:
+      '$2b$10$Kl35MOHBglC6mLztVPKWWOo/2T4/eGUa31esKPXcztIaruCdVMYOW',
+  },
+  {
+    email: 'seed.linkable@devoverflow.dev',
+    username: 'seed_linkable',
+    fullName: 'Linkable User',
+    avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Linkable',
+    emailVerifiedAt: new Date(),
+    passwordHash:
+      '$2b$10$Kl35MOHBglC6mLztVPKWWOo/2T4/eGUa31esKPXcztIaruCdVMYOW',
   },
 ];
 
@@ -177,6 +199,9 @@ async function main() {
   const now = new Date();
 
   // FK-safe reset to keep repeated runs deterministic.
+  await prisma.session.deleteMany({});
+  await prisma.authToken.deleteMany({});
+  await prisma.account.deleteMany({});
   await prisma.questionTag.deleteMany({});
   await prisma.aiAnswer.deleteMany({});
   await prisma.vote.deleteMany({});
@@ -199,6 +224,25 @@ async function main() {
 
   const userIdByUsername = new Map(users.map((user) => [user.username, user.id]));
   const tagIdBySlug = new Map(tags.map((tag) => [tag.slug, tag.id]));
+
+  await prisma.account.createMany({
+    data: [
+      {
+        userId: userIdByUsername.get('seed_mina')!,
+        provider: AuthProvider.GITHUB,
+        providerAccountId: 'seed-github-mina',
+        email: 'seed.mina@devoverflow.dev',
+        avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Mina',
+      },
+      {
+        userId: userIdByUsername.get('seed_ravi')!,
+        provider: AuthProvider.GOOGLE,
+        providerAccountId: 'seed-google-ravi',
+        email: 'seed.ravi@devoverflow.dev',
+        avatarUrl: 'https://api.dicebear.com/9.x/initials/svg?seed=Ravi',
+      },
+    ],
+  });
 
   for (let i = 0; i < questionSeed.length; i += 1) {
     const item = questionSeed[i];

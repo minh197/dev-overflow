@@ -24,7 +24,6 @@ describe('QuestionsService', () => {
     };
 
     const prisma = {
-      user: { findFirst: jest.fn() },
       post: { findFirst: jest.fn() },
       tag: { findMany: jest.fn() },
       $transaction: jest.fn(async (callback) => callback(tx)),
@@ -68,13 +67,12 @@ describe('QuestionsService', () => {
 
   it('rejects update when actor is neither owner nor admin', async () => {
     const prisma = makePrismaMock();
-    prisma.user.findFirst.mockResolvedValueOnce(actor);
     prisma.post.findFirst.mockResolvedValue(baseQuestionRow);
 
     const service = new QuestionsService(prisma as never);
 
     await expect(
-      service.updateQuestion(11, { title: 'Updated title' }),
+      service.updateQuestion(11, actor, { title: 'Updated title' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -82,13 +80,12 @@ describe('QuestionsService', () => {
     process.env.QUESTION_ADMIN_USERNAMES = 'seed_alex';
 
     const prisma = makePrismaMock();
-    prisma.user.findFirst.mockResolvedValueOnce(actor);
     prisma.post.findFirst.mockResolvedValue(baseQuestionRow);
     prisma.__tx.questionTag.groupBy.mockResolvedValue([{ tagId: 7, _count: { tagId: 0 } }]);
 
     const service = new QuestionsService(prisma as never);
 
-    const result = await service.deleteQuestion(11);
+    const result = await service.deleteQuestion(11, actor);
 
     expect(result).toEqual({ id: 11, deleted: true });
     expect(prisma.__tx.questionTag.deleteMany).toHaveBeenCalledWith({

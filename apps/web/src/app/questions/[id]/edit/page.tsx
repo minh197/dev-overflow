@@ -2,6 +2,7 @@
 
 import { QuestionForm } from "@/components/questions/question-form";
 import { QuestionsLayout } from "@/components/questions/questions-layout";
+import { getApiErrorMessage, isUnauthorizedError } from "@/lib/api/api-errors";
 import {
   fetchPopularTags,
   fetchQuestionById,
@@ -57,8 +58,15 @@ export default function EditQuestionPage() {
       });
       router.push(`/questions/${updatedQuestion.postId}`);
     },
-    onError: () => {
-      setErrorMessage("Unable to update question. Please try again.");
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        router.push(`/sign-in?next=/questions/${questionId}/edit`);
+        return;
+      }
+
+      setErrorMessage(
+        getApiErrorMessage(error, "Unable to update question. Please try again."),
+      );
     },
   });
 
