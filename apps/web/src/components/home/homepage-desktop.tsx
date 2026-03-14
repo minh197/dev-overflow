@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { FeedFilters } from "@/components/home/feed-filters";
@@ -10,6 +11,7 @@ import { RightRail } from "@/components/home/right-rail";
 import { TopSearch } from "@/components/home/top-search";
 import {
   fetchAuthMe,
+  deleteQuestion,
   fetchHomepageQuestions,
   fetchHotNetwork,
   fetchPopularTags,
@@ -22,13 +24,12 @@ import type {
 } from "@/lib/homepage-types";
 
 const navItems: NavItem[] = [
-  { id: "home", label: "Home", href: "#", active: true },
+  { id: "home", label: "Home", href: "/", active: true },
   { id: "collections", label: "Collections", href: "#" },
   { id: "jobs", label: "Find Jobs", href: "#" },
   { id: "tags", label: "Tags", href: "#" },
   { id: "communities", label: "Communities", href: "#" },
-  { id: "ask", label: "Ask a Question", href: "#" },
-  { id: "recommended", label: "Recommended Qs", href: "#" },
+  { id: "ask", label: "Ask a Question", href: "/questions/ask" },
 ];
 
 const filters: FeedFilter[] = [
@@ -47,6 +48,8 @@ function getInitials(nameOrUsername: string) {
 
 export function HomepageDesktop() {
   const [activeFilter, setActiveFilter] = useState<FeedFilterKey>("newest");
+  const queryClient = useQueryClient();
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   const {
     data: questions = [],
@@ -83,6 +86,30 @@ export function HomepageDesktop() {
     [authMe?.fullName, authMe?.username],
   );
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteQuestion,
+    onSuccess: () => {
+      setDeleteErrorMessage(null);
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === "homepage-questions",
+      });
+      queryClient.invalidateQueries({ queryKey: ["homepage-hot-network"] });
+      queryClient.invalidateQueries({ queryKey: ["homepage-popular-tags"] });
+    },
+    onError: (error: unknown) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setDeleteErrorMessage("You do not have permission to delete this question.");
+      } else if (status === 404) {
+        setDeleteErrorMessage("Question not found. It may already be removed.");
+      } else {
+        setDeleteErrorMessage("Failed to delete the question. Please retry.");
+      }
+    },
+  });
+
   return (
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-muted)]">
       <div className="mx-auto flex max-w-[1400px]">
@@ -96,12 +123,12 @@ export function HomepageDesktop() {
               <h1 className="text-3xl font-semibold text-[var(--text-strong)]">
                 All Questions
               </h1>
-              <button
-                type="button"
+              <Link
+                href="/questions/ask"
                 className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
               >
                 Ask a Question
-              </button>
+              </Link>
             </div>
 
             <FeedFilters
@@ -126,8 +153,18 @@ export function HomepageDesktop() {
                   No questions found for this filter.
                 </div>
               )}
+              {deleteErrorMessage && (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
+                  {deleteErrorMessage}
+                </div>
+              )}
               {questions.map((question) => (
-                <QuestionCard key={question.postId} question={question} />
+                <QuestionCard
+                  key={question.postId}
+                  question={question}
+                  isDeleting={deleteMutation.isPending}
+                  onDeleteQuestion={(questionId) => deleteMutation.mutate(questionId)}
+                />
               ))}
             </div>
           </section>

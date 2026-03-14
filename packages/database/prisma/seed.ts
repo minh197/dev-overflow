@@ -174,17 +174,15 @@ const questionSeed = [
 ];
 
 async function main() {
-  const now = new Date('2026-03-01T12:00:00.000Z');
+  const now = new Date();
 
   // FK-safe reset to keep repeated runs deterministic.
   await prisma.questionTag.deleteMany({});
   await prisma.aiAnswer.deleteMany({});
-  await prisma.answer.deleteMany({});
   await prisma.vote.deleteMany({});
   await prisma.comment.deleteMany({});
   await prisma.bookmark.deleteMany({});
   await prisma.postView.deleteMany({});
-  await prisma.question.deleteMany({});
   await prisma.post.deleteMany({});
   await prisma.tag.deleteMany({});
   await prisma.user.deleteMany({});
@@ -227,20 +225,12 @@ async function main() {
       },
     });
 
-    const question = await prisma.question.create({
-      data: {
-        postId: post.id,
-        createdAt,
-        updatedAt: createdAt,
-      },
-    });
-
     const questionTagRows = item.tagSlugs.map((slug) => {
       const tagId = tagIdBySlug.get(slug);
       if (!tagId) {
         throw new Error(`Missing tag for slug "${slug}"`);
       }
-      return { questionId: question.id, tagId, createdAt };
+      return { postId: post.id, tagId, createdAt };
     });
 
     await prisma.questionTag.createMany({
@@ -270,13 +260,12 @@ async function main() {
     prisma.user.count(),
     prisma.tag.count(),
     prisma.post.count({ where: { type: PostType.QUESTION } }),
-    prisma.question.count(),
     prisma.questionTag.count(),
   ]);
 
   console.log('Seed complete.');
   console.log(`users=${totals[0]} tags=${totals[1]} questionPosts=${totals[2]}`);
-  console.log(`questions=${totals[3]} questionTags=${totals[4]}`);
+  console.log(`questionTags=${totals[3]}`);
 }
 
 main()

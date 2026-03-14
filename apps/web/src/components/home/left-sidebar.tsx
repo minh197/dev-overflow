@@ -1,4 +1,5 @@
 import type { NavItem } from "@/lib/homepage-types";
+import Link from "next/link";
 
 type LeftSidebarProps = {
   navItems: NavItem[];
@@ -18,7 +19,7 @@ export function LeftSidebar({ navItems }: LeftSidebarProps) {
 
       <nav className="space-y-1">
         {navItems.map((item) => (
-          <a
+          <Link
             key={item.id}
             href={item.href}
             className={`flex items-center rounded-xl px-3 py-2 text-sm transition-colors ${
@@ -29,7 +30,7 @@ export function LeftSidebar({ navItems }: LeftSidebarProps) {
           >
             <span className="mr-2 text-xs">◦</span>
             {item.label}
-          </a>
+          </Link>
         ))}
       </nav>
 

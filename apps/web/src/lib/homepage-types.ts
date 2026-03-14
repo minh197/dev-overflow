@@ -23,7 +23,9 @@ export type QuestionTag = {
 
 export type QuestionSummary = {
   postId: string;
+  authorId: number;
   title: string;
+  bodyMdx?: string;
   authorName: string;
   authorHandle: string;
   avatarText: string;
@@ -31,6 +33,8 @@ export type QuestionSummary = {
   votes: number;
   answers: number;
   views: string;
+  canEdit?: boolean;
+  canDelete?: boolean;
   tags: QuestionTag[];
 };
 
@@ -41,6 +45,13 @@ export type HotNetworkItem = {
 
 export type PopularTag = {
   id: string;
+  tagId?: number;
   name: string;
   countLabel: string;
+};
+
+export type QuestionFormValues = {
+  title: string;
+  bodyMdx: string;
+  tagIds: number[];
 };

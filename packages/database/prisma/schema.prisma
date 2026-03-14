@@ -120,8 +120,8 @@ model Post {
 
   user      User      @relation(fields: [userId], references: [id])
   postViews PostView[]
-  question  Question?
-  answer    Answer?
+  questionTags QuestionTag[]
+  aiAnswers    AiAnswer[]
   votes     Vote[]
   bookmarks Bookmark[]
   comments  Comment[]
@@ -135,48 +135,13 @@ model PostView {
   id        Int      @id @default(autoincrement())
   userId    Int?     @map("user_id")
   postId    Int      @map("post_id")
-  ipAddress String?  @map("ip_address")
   createdAt DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id])
-  post Post  @relation(fields: [postId], references: [id])
+  post Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId], map: "idx_post_views_unique")
   @@map("post_views")
-}
-
-model Question {
-  id               Int      @id @default(autoincrement())
-  postId           Int      @unique @map("post_id")
-  acceptedAnswerId Int?     @unique @map("accepted_answer_id")
-  isClosed         Boolean  @default(false) @map("is_closed")
-  closedReason     String?  @map("closed_reason")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-
-  post           Post         @relation(fields: [postId], references: [id])
-  acceptedAnswer Answer?      @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id])
-  answers        Answer[]     @relation("QuestionAnswers")
-  questionTags   QuestionTag[]
-  aiAnswers      AiAnswer[]
-
-  @@map("questions")
-}
-
-model Answer {
-  id        Int      @id @default(autoincrement())
-  postId    Int      @unique @map("post_id")
-  questionId Int     @map("question_id")
-  isAccepted Boolean @default(false) @map("is_accepted")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  post                Post      @relation(fields: [postId], references: [id])
-  question            Question  @relation("QuestionAnswers", fields: [questionId], references: [id])
-  acceptedForQuestion Question? @relation("AcceptedAnswer")
-
-  @@index([questionId], map: "idx_answers_question")
-  @@map("answers")
 }
 
 model Vote {
@@ -188,7 +153,7 @@ model Vote {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
-  post Post @relation(fields: [postId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId], map: "idx_votes_unique")
   @@map("votes")
@@ -213,14 +178,14 @@ model Tag {
 }
 
 model QuestionTag {
-  questionId Int      @map("question_id")
-  tagId      Int      @map("tag_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+  postId    Int      @map("post_id")
+  tagId     Int      @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  question Question @relation(fields: [questionId], references: [id])
-  tag      Tag      @relation(fields: [tagId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id])
 
-  @@id([questionId, tagId])
+  @@id([postId, tagId])
   @@map("question_tags")
 }
 
@@ -249,7 +214,7 @@ model Bookmark {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   user       User        @relation(fields: [userId], references: [id])
-  post       Post        @relation(fields: [postId], references: [id])
+  post       Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
   collection Collection? @relation(fields: [collectionId], references: [id])
 
   @@unique([userId, postId], map: "idx_bookmarks_unique")
@@ -264,7 +229,7 @@ model Comment {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  post Post @relation(fields: [postId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
   @@index([postId, createdAt], map: "idx_comments_post")
@@ -273,7 +238,7 @@ model Comment {
 
 model AiAnswer {
   id               Int      @id @default(autoincrement())
-  questionId       Int      @map("question_id")
+  postId           Int      @map("post_id")
   editorUserId     Int?     @map("editor_user_id")
   modelName        String   @map("model_name")
   modelVersion     String   @map("model_version")
@@ -284,10 +249,10 @@ model AiAnswer {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  question   Question @relation(fields: [questionId], references: [id])
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   editorUser User?    @relation("AiAnswerEditor", fields: [editorUserId], references: [id])
 
-  @@index([questionId], map: "idx_ai_answers_question")
+  @@index([postId], map: "idx_ai_answers_post")
   @@map("ai_answers")
 }
 

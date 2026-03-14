@@ -3,6 +3,7 @@ import type {
   FeedFilterKey,
   HotNetworkItem,
   PopularTag,
+  QuestionFormValues,
   QuestionSummary,
 } from "@/lib/homepage-types";
 
@@ -22,11 +23,15 @@ type ApiQuestionTag = {
 
 type ApiQuestion = {
   id: number;
+  userId?: number;
   title: string | null;
+  bodyMdx?: string;
   createdAt: string;
   upVoteCount: number;
   answerCount: number;
   viewCount: number;
+  canEdit?: boolean;
+  canDelete?: boolean;
   user: ApiUser;
   question: {
     id: number;
@@ -43,6 +48,7 @@ type ApiHotQuestion = {
 };
 
 type ApiPopularTag = {
+  id: number;
   displayName: string;
   slug: string;
   iconUrl: string | null;
@@ -93,7 +99,9 @@ function initialsFromUser(user: ApiUser) {
 function mapQuestion(item: ApiQuestion): QuestionSummary {
   return {
     postId: String(item.id),
+    authorId: item.userId ?? item.user.id,
     title: item.title ?? "Untitled question",
+    bodyMdx: item.bodyMdx,
     authorName: item.user.fullName ?? item.user.username,
     authorHandle: `@${item.user.username}`,
     avatarText: initialsFromUser(item.user),
@@ -101,6 +109,8 @@ function mapQuestion(item: ApiQuestion): QuestionSummary {
     votes: item.upVoteCount,
     answers: item.answerCount,
     views: compactViews(item.viewCount),
+    canEdit: item.canEdit ?? false,
+    canDelete: item.canDelete ?? false,
     tags:
       item.question?.questionTags?.map((qt) => ({
         id: String(qt.tag.id),
@@ -119,6 +129,7 @@ function mapHotQuestion(item: ApiHotQuestion): HotNetworkItem {
 function mapPopularTag(item: ApiPopularTag): PopularTag {
   return {
     id: item.slug,
+    tagId: item.id,
     name: item.displayName,
     countLabel: `${item.questionCount}+`,
   };
@@ -132,6 +143,25 @@ export async function fetchHomepageQuestions(filter: FeedFilterKey) {
     },
   });
   return data.map(mapQuestion);
+}
+
+export async function fetchQuestionById(id: string) {
+  const { data } = await apiClient.get<ApiQuestion>(`/questions/${id}`);
+  return mapQuestion(data);
+}
+
+export async function createQuestion(payload: QuestionFormValues) {
+  const { data } = await apiClient.post<ApiQuestion>("/questions", payload);
+  return mapQuestion(data);
+}
+
+export async function updateQuestion(id: string, payload: QuestionFormValues) {
+  const { data } = await apiClient.patch<ApiQuestion>(`/questions/${id}`, payload);
+  return mapQuestion(data);
+}
+
+export async function deleteQuestion(id: string) {
+  await apiClient.delete(`/questions/${id}`);
 }
 
 export async function fetchHotNetwork() {

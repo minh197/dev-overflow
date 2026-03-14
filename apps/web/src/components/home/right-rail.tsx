@@ -1,4 +1,5 @@
 import type { HotNetworkItem, PopularTag } from "@/lib/homepage-types";
+import Link from "next/link";
 
 type RightRailProps = {
   hotNetwork: HotNetworkItem[];
@@ -15,12 +16,12 @@ export function RightRail({ hotNetwork, popularTags }: RightRailProps) {
         <ul className="space-y-2">
           {hotNetwork.map((item) => (
             <li key={item.id}>
-              <a
-                href="#"
+              <Link
+                href={`/questions/${item.id}`}
                 className="text-xs leading-5 text-[var(--text-soft)] transition-colors hover:text-[var(--text-muted)]"
               >
                 {item.title}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

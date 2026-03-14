@@ -12,6 +12,7 @@ export class TagsService {
       take: limit,
       orderBy: [{ questionCount: 'desc' }, { displayName: 'asc' }],
       select: {
+        id: true,
         displayName: true,
         slug: true,
         iconUrl: true,
