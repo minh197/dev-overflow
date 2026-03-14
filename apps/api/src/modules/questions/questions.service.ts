@@ -11,6 +11,7 @@ export class QuestionsService {
 
   async listQuestions(query: GetQuestionsQueryDto) {
     const limit = query.limit ?? 20;
+    const offset = query.offset ?? 0;
     const sort = query.sort ?? QuestionsSort.NEWEST;
 
     const where = {
@@ -48,6 +49,7 @@ export class QuestionsService {
         ...where,
       },
       orderBy: orderByMap[sort],
+      skip: offset,
       take: limit,
       select: {
         id: true,
