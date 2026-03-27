@@ -114,6 +114,7 @@ model User {
   authTokens         AuthToken[]
   sessions           Session[]
 
+  @@index([status], map: "idx_users_status")
   @@map("users")
 }
 
