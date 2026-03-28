@@ -10,7 +10,7 @@ import {
 } from "@/lib/api/homepage-api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function EditQuestionPage() {
   const params = useParams<{ id: string }>();
@@ -31,7 +31,7 @@ export default function EditQuestionPage() {
 
   const { data: popularTags = [] } = useQuery({
     queryKey: ["homepage-popular-tags"],
-    queryFn: fetchPopularTags,
+    queryFn: () => fetchPopularTags(30),
   });
 
   const tagOptions = useMemo(
@@ -44,6 +44,19 @@ export default function EditQuestionPage() {
         })),
     [popularTags],
   );
+
+  const initialTagOptions = useMemo(() => {
+    if (!question) return [];
+    return question.tags.map((tag) => ({
+      id: Number(tag.id),
+      label: tag.displayName,
+    }));
+  }, [question]);
+
+  useEffect(() => {
+    if (!question || question.canEdit === true) return;
+    router.replace(`/questions/${questionId}`);
+  }, [question, questionId, router]);
 
   const updateMutation = useMutation({
     mutationFn: (values: { title: string; bodyMdx: string; tagIds: number[] }) =>
@@ -70,8 +83,10 @@ export default function EditQuestionPage() {
     },
   });
 
+  const canShowForm = question?.canEdit === true;
+
   return (
-    <QuestionsLayout activeNavId="home">
+    <QuestionsLayout activeNavId="ask">
       {isQuestionLoading && (
         <div className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4 text-sm text-[var(--text-soft)]">
           Loading question...
@@ -82,7 +97,7 @@ export default function EditQuestionPage() {
           Failed to load question.
         </div>
       )}
-      {question && (
+      {question && canShowForm && (
         <QuestionForm
           heading="Edit a question"
           submitLabel="Save Changes"
@@ -91,6 +106,7 @@ export default function EditQuestionPage() {
             bodyMdx: question.bodyMdx ?? "",
             tagIds: question.tags.map((tag) => Number(tag.id)),
           }}
+          initialTagOptions={initialTagOptions}
           tagOptions={tagOptions}
           isSubmitting={updateMutation.isPending}
           errorMessage={errorMessage}

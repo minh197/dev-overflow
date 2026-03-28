@@ -13,13 +13,27 @@ const DEFAULT_WEB_ORIGIN = 'http://localhost:3000';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configured = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? [];
+  const rawOrigins =
+    process.env.CORS_ORIGIN?.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean) ?? [];
   const corsOrigin =
-    configured.length > 1 ? configured : configured[0] ?? DEFAULT_WEB_ORIGIN;
+    rawOrigins.length > 1 ? rawOrigins : rawOrigins[0] ?? DEFAULT_WEB_ORIGIN;
+
+  // Explicit methods (string) + headers so browser preflight allows PATCH/DELETE
+  // with credentialed JSON requests from the web app.
   app.enableCors({
     origin: corsOrigin,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
     credentials: true,
+    maxAge: 86_400,
   });
   app.useGlobalPipes(
     new ValidationPipe({

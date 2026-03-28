@@ -279,9 +279,9 @@ export async function fetchHotNetwork() {
   return data.map(mapHotQuestion);
 }
 
-export async function fetchPopularTags() {
+export async function fetchPopularTags(limit = 30) {
   const { data } = await apiClient.get<ApiPopularTag[]>("/tags/popular", {
-    params: { limit: 8 },
+    params: { limit },
   });
   return data.map(mapPopularTag);
 }

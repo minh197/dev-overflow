@@ -38,7 +38,7 @@ export function AppShell({
     isError: isPopularTagsError,
   } = useQuery({
     queryKey: ["homepage-popular-tags"],
-    queryFn: fetchPopularTags,
+    queryFn: () => fetchPopularTags(),
   });
 
   const { data: authMe } = useQuery({
@@ -76,7 +76,10 @@ export function AppShell({
                 Some sidebar data is temporarily unavailable.
               </div>
             )}
-            <RightRail hotNetwork={hotNetwork} popularTags={popularTags} />
+            <RightRail
+              hotNetwork={hotNetwork}
+              popularTags={popularTags.slice(0, 8)}
+            />
           </div>
         </main>
       </div>

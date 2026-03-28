@@ -15,7 +15,7 @@ export default function AskQuestionPage() {
 
   const { data: popularTags = [] } = useQuery({
     queryKey: ["homepage-popular-tags"],
-    queryFn: fetchPopularTags,
+    queryFn: () => fetchPopularTags(30),
   });
 
   const tagOptions = useMemo(
