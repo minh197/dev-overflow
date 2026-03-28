@@ -29,6 +29,8 @@ type ApiQuestion = {
   bodyMdx?: string;
   createdAt: string;
   upVoteCount: number;
+  downVoteCount?: number;
+  currentUserVote?: 1 | -1 | null;
   answerCount: number;
   viewCount: number;
   canEdit?: boolean;
@@ -46,7 +48,18 @@ type ApiAnswer = {
   bodyMdx: string;
   createdAt: string;
   upVoteCount: number;
+  downVoteCount: number;
+  currentUserVote: 1 | -1 | null;
   user: ApiUser;
+};
+
+export type AnswerSortParam = "upvotes" | "newest";
+
+export type CastVoteResult = {
+  postId: number;
+  upVoteCount: number;
+  downVoteCount: number;
+  userVote: 1 | -1 | null;
 };
 
 type ApiHotQuestion = {
@@ -149,6 +162,10 @@ function initialsFromUser(user: ApiUser) {
 }
 
 function mapQuestion(item: ApiQuestion): QuestionSummary {
+  const qVote = item.currentUserVote;
+  const normalizedQuestionVote =
+    qVote === 1 || qVote === -1 ? qVote : null;
+
   return {
     postId: String(item.id),
     authorId: item.userId ?? item.user.id,
@@ -159,6 +176,8 @@ function mapQuestion(item: ApiQuestion): QuestionSummary {
     avatarText: initialsFromUser(item.user),
     createdAtLabel: formatRelativeFromNow(item.createdAt),
     votes: item.upVoteCount,
+    downVoteCount: item.downVoteCount ?? 0,
+    currentUserVote: normalizedQuestionVote,
     answers: item.answerCount,
     views: compactViews(item.viewCount),
     canEdit: item.canEdit ?? false,
@@ -169,15 +188,21 @@ function mapQuestion(item: ApiQuestion): QuestionSummary {
         displayName: qt.tag.displayName,
       })) ?? [],
     answerItems:
-      item.answers?.map((answer) => ({
-        id: String(answer.id),
-        bodyMdx: answer.bodyMdx,
-        authorName: answer.user.fullName ?? answer.user.username,
-        authorHandle: `@${answer.user.username}`,
-        avatarText: initialsFromUser(answer.user),
-        createdAtLabel: formatRelativeFromNow(answer.createdAt),
-        votes: answer.upVoteCount,
-      })) ?? [],
+      item.answers?.map((answer) => {
+        const aVote = answer.currentUserVote;
+        return {
+          id: String(answer.id),
+          authorId: answer.user.id,
+          bodyMdx: answer.bodyMdx,
+          authorName: answer.user.fullName ?? answer.user.username,
+          authorHandle: `@${answer.user.username}`,
+          avatarText: initialsFromUser(answer.user),
+          createdAtLabel: formatRelativeFromNow(answer.createdAt),
+          upVoteCount: answer.upVoteCount,
+          downVoteCount: answer.downVoteCount ?? 0,
+          currentUserVote: aVote === 1 || aVote === -1 ? aVote : null,
+        };
+      }) ?? [],
   };
 }
 
@@ -207,9 +232,30 @@ export async function fetchHomepageQuestions(filter: FeedFilterKey) {
   return data.map(mapQuestion);
 }
 
-export async function fetchQuestionById(id: string) {
-  const { data } = await apiClient.get<ApiQuestion>(`/questions/${id}`);
+export async function fetchQuestionById(
+  id: string,
+  answerSort: AnswerSortParam = "upvotes",
+) {
+  const { data } = await apiClient.get<ApiQuestion>(`/questions/${id}`, {
+    params: { answerSort },
+  });
   return mapQuestion(data);
+}
+
+export async function createAnswer(questionId: string, bodyMdx: string) {
+  const { data } = await apiClient.post<ApiQuestion>(
+    `/questions/${questionId}/answers`,
+    { bodyMdx },
+  );
+  return mapQuestion(data);
+}
+
+export async function castVote(postId: number, value: 1 | -1 | 0) {
+  const { data } = await apiClient.post<CastVoteResult>(
+    `/posts/${postId}/vote`,
+    { value },
+  );
+  return data;
 }
 
 export async function createQuestion(payload: QuestionFormValues) {

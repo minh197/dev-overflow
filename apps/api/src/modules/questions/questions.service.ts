@@ -12,6 +12,11 @@ import { GetQuestionsQueryDto } from './dto/get-questions-query.dto';
 import { GetHotQuestionsQueryDto } from './dto/get-hot-questions-query.dto';
 import { QuestionsSort } from './dto/get-questions-query.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
+import { CreateAnswerDto } from './dto/create-answer.dto';
+import {
+  AnswerSort,
+  GetQuestionQueryDto,
+} from './dto/get-question-query.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 
 type QuestionTagRow = {
@@ -42,19 +47,23 @@ type QuestionAnswerRow = {
   bodyMdx: string;
   createdAt: Date;
   upVoteCount: number;
+  downVoteCount: number;
   user: {
     id: number;
     fullName: string | null;
     username: string;
     avatarUrl: string | null;
   };
+  votes?: { value: number }[];
 };
 
 type QuestionDetailRow = ListQuestionRow & {
   userId: number;
   bodyMdx: string;
   status: PostStatus;
+  downVoteCount: number;
   answers: QuestionAnswerRow[];
+  votes?: { value: number }[];
 };
 
 @Injectable()
@@ -130,7 +139,48 @@ export class QuestionsService {
     );
   }
 
-  private async getQuestionByIdOrThrow(id: number): Promise<QuestionDetailRow> {
+  private async getQuestionByIdOrThrow(
+    id: number,
+    actor: AuthUser | null,
+    options?: { answerSort?: AnswerSort },
+  ): Promise<QuestionDetailRow> {
+    const answerSort = options?.answerSort ?? AnswerSort.UPVOTES;
+    const answerOrderBy =
+      answerSort === AnswerSort.NEWEST
+        ? ([
+            { createdAt: 'desc' as const },
+            { id: 'desc' as const },
+          ] as const)
+        : ([
+            { upVoteCount: 'desc' as const },
+            { createdAt: 'asc' as const },
+          ] as const);
+
+    const answerSelect = {
+      id: true,
+      bodyMdx: true,
+      createdAt: true,
+      upVoteCount: true,
+      downVoteCount: true,
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          username: true,
+          avatarUrl: true,
+        },
+      },
+      ...(actor
+        ? {
+            votes: {
+              where: { userId: actor.id },
+              take: 1,
+              select: { value: true },
+            },
+          }
+        : {}),
+    };
+
     const post = (await this.prisma.post.findFirst({
       where: {
         id,
@@ -145,6 +195,7 @@ export class QuestionsService {
         status: true,
         createdAt: true,
         upVoteCount: true,
+        downVoteCount: true,
         answerCount: true,
         viewCount: true,
         user: {
@@ -155,6 +206,15 @@ export class QuestionsService {
             avatarUrl: true,
           },
         },
+        ...(actor
+          ? {
+              votes: {
+                where: { userId: actor.id },
+                take: 1,
+                select: { value: true },
+              },
+            }
+          : {}),
         questionTags: {
           select: {
             tag: {
@@ -170,21 +230,8 @@ export class QuestionsService {
             type: PostType.ANSWER,
             status: PostStatus.ACTIVE,
           },
-          orderBy: [{ upVoteCount: 'desc' }, { createdAt: 'asc' }],
-          select: {
-            id: true,
-            bodyMdx: true,
-            createdAt: true,
-            upVoteCount: true,
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                username: true,
-                avatarUrl: true,
-              },
-            },
-          },
+          orderBy: [...answerOrderBy],
+          select: answerSelect,
         },
       },
     })) as QuestionDetailRow | null;
@@ -320,21 +367,82 @@ export class QuestionsService {
     }));
   }
 
-  async getQuestion(id: number, actor: AuthUser | null) {
-    const post = await this.getQuestionByIdOrThrow(id);
+  async getQuestion(
+    id: number,
+    actor: AuthUser | null,
+    query?: GetQuestionQueryDto,
+  ) {
+    const post = await this.getQuestionByIdOrThrow(id, actor, {
+      answerSort: query?.answerSort,
+    });
+
+    const questionUserVote = post.votes?.[0]?.value;
+    const normalizedQuestionVote =
+      questionUserVote === 1 || questionUserVote === -1
+        ? questionUserVote
+        : null;
 
     return {
       ...this.toQuestionSummary(post, actor),
       bodyMdx: post.bodyMdx,
       status: post.status,
-      answers: post.answers.map((answer) => ({
-        id: answer.id,
-        bodyMdx: answer.bodyMdx,
-        createdAt: answer.createdAt,
-        upVoteCount: answer.upVoteCount,
-        user: answer.user,
-      })),
+      downVoteCount: post.downVoteCount,
+      currentUserVote: normalizedQuestionVote,
+      answers: post.answers.map((answer) => {
+        const v = answer.votes?.[0]?.value;
+        return {
+          id: answer.id,
+          bodyMdx: answer.bodyMdx,
+          createdAt: answer.createdAt,
+          upVoteCount: answer.upVoteCount,
+          downVoteCount: answer.downVoteCount,
+          currentUserVote: v === 1 || v === -1 ? v : null,
+          user: answer.user,
+        };
+      }),
     };
+  }
+
+  async createAnswer(
+    questionId: number,
+    actor: AuthUser | null,
+    dto: CreateAnswerDto,
+  ) {
+    const currentUser = this.assertAuthenticated(actor);
+
+    await this.prisma.$transaction(async (tx) => {
+      const parent = await tx.post.findFirst({
+        where: {
+          id: questionId,
+          type: PostType.QUESTION,
+          status: PostStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (!parent) {
+        throw new NotFoundException('Question not found.');
+      }
+
+      await tx.post.create({
+        data: {
+          uuid: randomUUID(),
+          userId: currentUser.id,
+          parentQuestionId: questionId,
+          title: null,
+          bodyMdx: dto.bodyMdx.trim(),
+          type: PostType.ANSWER,
+          status: PostStatus.ACTIVE,
+        },
+      });
+
+      await tx.post.update({
+        where: { id: questionId },
+        data: { answerCount: { increment: 1 } },
+      });
+    });
+
+    return this.getQuestion(questionId, currentUser);
   }
 
   async createQuestion(actor: AuthUser | null, dto: CreateQuestionDto) {
@@ -377,7 +485,7 @@ export class QuestionsService {
     dto: UpdateQuestionDto,
   ) {
     const currentUser = this.assertAuthenticated(actor);
-    const existing = await this.getQuestionByIdOrThrow(id);
+    const existing = await this.getQuestionByIdOrThrow(id, currentUser);
     this.assertCanManage(currentUser, existing.userId);
 
     const nextTagIds = dto.tagIds
@@ -413,7 +521,7 @@ export class QuestionsService {
 
   async deleteQuestion(id: number, actor: AuthUser | null) {
     const currentUser = this.assertAuthenticated(actor);
-    const existing = await this.getQuestionByIdOrThrow(id);
+    const existing = await this.getQuestionByIdOrThrow(id, currentUser);
     this.assertCanManage(currentUser, existing.userId);
 
     const tagIds = existing.questionTags.map((row) => row.tag.id);

@@ -21,6 +21,8 @@ import { GetHotQuestionsQueryDto } from './dto/get-hot-questions-query.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { QuestionParamDto } from './dto/question-param.dto';
+import { CreateAnswerDto } from './dto/create-answer.dto';
+import { GetQuestionQueryDto } from './dto/get-question-query.dto';
 
 @Controller('questions')
 export class QuestionsController {
@@ -44,9 +46,20 @@ export class QuestionsController {
   @Get(':id')
   getQuestion(
     @Param() params: QuestionParamDto,
+    @Query() query: GetQuestionQueryDto,
     @CurrentUser() user: AuthUser | null,
   ) {
-    return this.questionsService.getQuestion(params.id, user);
+    return this.questionsService.getQuestion(params.id, user, query);
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post(':id/answers')
+  createAnswer(
+    @Param() params: QuestionParamDto,
+    @Body() body: CreateAnswerDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.questionsService.createAnswer(params.id, user, body);
   }
 
   @UseGuards(AccessTokenGuard)

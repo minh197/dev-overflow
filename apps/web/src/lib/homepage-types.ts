@@ -32,6 +32,8 @@ export type QuestionTag = {
   displayName: string;
 };
 
+export type QuestionUserVote = 1 | -1 | null;
+
 export type QuestionSummary = {
   postId: string;
   authorId: number;
@@ -41,7 +43,10 @@ export type QuestionSummary = {
   authorHandle: string;
   avatarText: string;
   createdAtLabel: string;
+  /** Upvote total for the question post */
   votes: number;
+  downVoteCount?: number;
+  currentUserVote?: QuestionUserVote;
   answers: number;
   views: string;
   canEdit?: boolean;
@@ -52,12 +57,15 @@ export type QuestionSummary = {
 
 export type QuestionAnswer = {
   id: string;
+  authorId: number;
   bodyMdx: string;
   authorName: string;
   authorHandle: string;
   avatarText: string;
   createdAtLabel: string;
-  votes: number;
+  upVoteCount: number;
+  downVoteCount: number;
+  currentUserVote: QuestionUserVote;
 };
 
 export type HotNetworkItem = {
