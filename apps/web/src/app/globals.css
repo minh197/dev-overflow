@@ -14,6 +14,12 @@
   --accent: #ff8b3d;
   --chip-bg: #1b2438;
   --chip-active-bg: #242f46;
+  --font-geist-sans:
+    "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-geist-mono:
+    "SF Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 @theme inline {
