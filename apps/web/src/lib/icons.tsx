@@ -99,6 +99,20 @@ export const SearchIcon = createIcon(
   </>,
 );
 
+export const ListFilterIcon = createIcon(
+  <>
+    <path d="M3 6h18" />
+    <path d="M7 12h10" />
+    <path d="M10 18h4" />
+  </>,
+);
+
+export const ChevronDownIcon = createIcon(
+  <>
+    <path d="m6 9 6 6 6-6" />
+  </>,
+);
+
 export const FileQuestionIcon = createIcon(
   <>
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />

@@ -14,7 +14,7 @@ const baseNavItems: Omit<NavItem, "active">[] = [
   { id: "collections", label: "Collections", href: "#", icon: FolderOpenIcon },
   { id: "jobs", label: "Find Jobs", href: "#", icon: BriefcaseBusinessIcon },
   { id: "tags", label: "Tags", href: "#", icon: TagIcon },
-  { id: "communities", label: "Communities", href: "#", icon: UsersIcon },
+  { id: "communities", label: "Communities", href: "/communities", icon: UsersIcon },
   { id: "ask", label: "Ask a Question", href: "/questions/ask", icon: CircleHelpIcon },
 ];
 
