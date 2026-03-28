@@ -25,7 +25,8 @@ async function bootstrap() {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      forbidNonWhitelisted: true,
+      // Strip unknown keys without 400 (OAuth callbacks may include extra query params).
+      forbidNonWhitelisted: false,
     }),
   );
   const parsedPort = parseInt(process.env.PORT ?? '3001', 10);

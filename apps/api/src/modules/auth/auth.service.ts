@@ -1024,8 +1024,10 @@ export class AuthService {
     return process.env.WEB_APP_URL ?? 'http://localhost:3000';
   }
 
+  /** Public API origin for OAuth callbacks — no trailing slash (Google/GitHub match redirect_uri exactly). */
   private getApiBaseUrl() {
-    return process.env.API_BASE_URL ?? 'http://localhost:3001';
+    const base = process.env.API_BASE_URL ?? 'http://localhost:3001';
+    return base.replace(/\/+$/, '');
   }
 
   private getProviderSlug(provider: AuthProvider) {
