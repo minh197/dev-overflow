@@ -13,10 +13,7 @@ import { GetHotQuestionsQueryDto } from './dto/get-hot-questions-query.dto';
 import { QuestionsSort } from './dto/get-questions-query.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { CreateAnswerDto } from './dto/create-answer.dto';
-import {
-  AnswerSort,
-  GetQuestionQueryDto,
-} from './dto/get-question-query.dto';
+import { AnswerSort, GetQuestionQueryDto } from './dto/get-question-query.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 
 type QuestionTagRow = {
@@ -147,10 +144,7 @@ export class QuestionsService {
     const answerSort = options?.answerSort ?? AnswerSort.UPVOTES;
     const answerOrderBy =
       answerSort === AnswerSort.NEWEST
-        ? ([
-            { createdAt: 'desc' as const },
-            { id: 'desc' as const },
-          ] as const)
+        ? ([{ createdAt: 'desc' as const }, { id: 'desc' as const }] as const)
         : ([
             { upVoteCount: 'desc' as const },
             { createdAt: 'asc' as const },

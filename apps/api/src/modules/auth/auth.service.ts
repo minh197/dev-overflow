@@ -23,9 +23,23 @@ import {
   REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_TTL_MS,
 } from './auth.constants';
+import {
+  getAccessTokenSecret,
+  getApiBaseUrl,
+  getProviderSlug,
+  getWebBaseUrl,
+} from './auth-env';
+import {
+  authUserSelect,
+  normalizeEmail,
+  normalizeNextPath,
+  toAuthUser,
+} from './auth.shared';
 import type {
+  AccessTokenPayload,
   AuthUser,
   AuthenticatedRequest,
+  OAuthStatePayload,
   PendingAccountLinkPayload,
   ProviderProfile,
 } from './auth.types';
@@ -35,28 +49,6 @@ import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 
-type AccessTokenPayload = {
-  sub: number;
-  sessionId: number;
-  type: 'access';
-};
-
-type OAuthStatePayload = {
-  provider: AuthProvider;
-  intent: 'sign-in' | 'link';
-  nextPath: string;
-  userId?: number;
-  type: 'oauth-state';
-};
-
-const authUserSelect = {
-  id: true,
-  email: true,
-  username: true,
-  fullName: true,
-  avatarUrl: true,
-} satisfies Prisma.UserSelect;
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -65,7 +57,7 @@ export class AuthService {
   ) {}
 
   async signUp(dto: SignUpDto) {
-    const email = this.normalizeEmail(dto.email);
+    const email = normalizeEmail(dto.email);
     const username = dto.username.trim();
 
     const existing = await this.prisma.user.findFirst({
@@ -101,7 +93,7 @@ export class AuthService {
   }
 
   async signIn(dto: SignInDto, request: Request, response: Response) {
-    const email = this.normalizeEmail(dto.email);
+    const email = normalizeEmail(dto.email);
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: {
@@ -124,7 +116,7 @@ export class AuthService {
     }
 
     await this.createSessionForUser(user, request, response);
-    return { user: this.toAuthUser(user) };
+    return { user: toAuthUser(user) };
   }
 
   async signOut(request: Request, response: Response) {
@@ -155,7 +147,7 @@ export class AuthService {
     if (!session) {
       throw new UnauthorizedException('Authentication is required.');
     }
-    return { user: this.toAuthUser(session.user) };
+    return { user: toAuthUser(session.user) };
   }
 
   async getMe(request: Request, response: Response) {
@@ -179,11 +171,11 @@ export class AuthService {
       throw new UnauthorizedException('Authentication is required.');
     }
 
-    return this.toAuthUser(session.user);
+    return toAuthUser(session.user);
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
-    const email = this.normalizeEmail(dto.email);
+    const email = normalizeEmail(dto.email);
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: {
@@ -209,7 +201,7 @@ export class AuthService {
         ttlMs: PASSWORD_RESET_TTL_MS,
       });
 
-      const resetUrl = `${this.getWebBaseUrl()}/reset-password/${encodeURIComponent(
+      const resetUrl = `${getWebBaseUrl()}/reset-password/${encodeURIComponent(
         rawToken,
       )}`;
 
@@ -285,7 +277,7 @@ export class AuthService {
       const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
         token,
         {
-          secret: this.getAccessTokenSecret(),
+          secret: getAccessTokenSecret(),
         },
       );
 
@@ -336,7 +328,7 @@ export class AuthService {
   ) {
     this.assertProviderIsConfigured(provider);
 
-    const nextPath = this.normalizeNextPath(next);
+    const nextPath = normalizeNextPath(next);
     const state = await this.jwtService.signAsync<OAuthStatePayload>(
       {
         provider,
@@ -346,12 +338,12 @@ export class AuthService {
         type: 'oauth-state',
       },
       {
-        secret: this.getAccessTokenSecret(),
+        secret: getAccessTokenSecret(),
         expiresIn: '10m',
       },
     );
 
-    const callbackUrl = `${this.getApiBaseUrl()}/auth/${this.getProviderSlug(
+    const callbackUrl = `${getApiBaseUrl()}/auth/${getProviderSlug(
       provider,
     )}/callback`;
 
@@ -382,7 +374,7 @@ export class AuthService {
     const payload = await this.jwtService.verifyAsync<OAuthStatePayload>(
       state,
       {
-        secret: this.getAccessTokenSecret(),
+        secret: getAccessTokenSecret(),
       },
     );
 
@@ -405,7 +397,7 @@ export class AuthService {
       );
       await this.createSessionForUser(linkedUser, request, response);
       response.redirect(
-        `${this.getWebBaseUrl()}${this.normalizeNextPath(payload.nextPath)}?linked=${this.getProviderSlug(provider)}`,
+        `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}?linked=${getProviderSlug(provider)}`,
       );
       return;
     }
@@ -427,7 +419,7 @@ export class AuthService {
     if (existingAccount?.user) {
       await this.createSessionForUser(existingAccount.user, request, response);
       response.redirect(
-        `${this.getWebBaseUrl()}${this.normalizeNextPath(payload.nextPath)}`,
+        `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}`,
       );
       return;
     }
@@ -456,9 +448,9 @@ export class AuthService {
       });
 
       response.redirect(
-        `${this.getWebBaseUrl()}/account-link-conflict?token=${encodeURIComponent(
+        `${getWebBaseUrl()}/account-link-conflict?token=${encodeURIComponent(
           rawToken,
-        )}&provider=${this.getProviderSlug(provider)}&email=${encodeURIComponent(
+        )}&provider=${getProviderSlug(provider)}&email=${encodeURIComponent(
           profile.email,
         )}`,
       );
@@ -486,7 +478,7 @@ export class AuthService {
 
     await this.createSessionForUser(user, request, response);
     response.redirect(
-      `${this.getWebBaseUrl()}${this.normalizeNextPath(payload.nextPath)}`,
+      `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}`,
     );
   }
 
@@ -517,7 +509,7 @@ export class AuthService {
 
     return {
       user,
-      nextPath: this.normalizeNextPath(payload.nextPath),
+      nextPath: normalizeNextPath(payload.nextPath),
     };
   }
 
@@ -660,7 +652,7 @@ export class AuthService {
         type: 'access',
       },
       {
-        secret: this.getAccessTokenSecret(),
+        secret: getAccessTokenSecret(),
         expiresIn: `${Math.floor(ACCESS_TOKEN_TTL_MS / 1000)}s`,
       },
     );
@@ -804,7 +796,7 @@ export class AuthService {
           client_id: this.getProviderClientId(AuthProvider.GITHUB),
           client_secret: this.getProviderClientSecret(AuthProvider.GITHUB),
           code,
-          redirect_uri: `${this.getApiBaseUrl()}/auth/github/callback`,
+          redirect_uri: `${getApiBaseUrl()}/auth/github/callback`,
         }),
       },
     );
@@ -868,7 +860,7 @@ export class AuthService {
     return {
       provider: AuthProvider.GITHUB,
       providerAccountId: String(profile.id),
-      email: this.normalizeEmail(primaryEmail),
+      email: normalizeEmail(primaryEmail),
       fullName: profile.name,
       avatarUrl: profile.avatar_url,
     };
@@ -885,7 +877,7 @@ export class AuthService {
         client_secret: this.getProviderClientSecret(AuthProvider.GOOGLE),
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `${this.getApiBaseUrl()}/auth/google/callback`,
+        redirect_uri: `${getApiBaseUrl()}/auth/google/callback`,
       }),
     });
 
@@ -931,7 +923,7 @@ export class AuthService {
     return {
       provider: AuthProvider.GOOGLE,
       providerAccountId: profile.sub,
-      email: this.normalizeEmail(profile.email),
+      email: normalizeEmail(profile.email),
       fullName: profile.name ?? null,
       avatarUrl: profile.picture ?? null,
     };
@@ -968,27 +960,6 @@ export class AuthService {
     return createHash('sha256').update(value).digest('hex');
   }
 
-  private normalizeEmail(email: string) {
-    return email.trim().toLowerCase();
-  }
-
-  private normalizeNextPath(next: string | undefined) {
-    if (!next || !next.startsWith('/')) {
-      return '/';
-    }
-    return next;
-  }
-
-  private toAuthUser(user: AuthUser) {
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      fullName: user.fullName,
-      avatarUrl: user.avatarUrl,
-    };
-  }
-
   private async generateUniqueUsername(email: string) {
     const base = email
       .split('@')[0]
@@ -1016,24 +987,6 @@ export class AuthService {
     );
   }
 
-  private getAccessTokenSecret() {
-    return process.env.JWT_SECRET ?? 'devoverflow-local-access-secret';
-  }
-
-  private getWebBaseUrl() {
-    return process.env.WEB_APP_URL ?? 'http://localhost:3000';
-  }
-
-  /** Public API origin for OAuth callbacks — no trailing slash (Google/GitHub match redirect_uri exactly). */
-  private getApiBaseUrl() {
-    const base = process.env.API_BASE_URL ?? 'http://localhost:3001';
-    return base.replace(/\/+$/, '');
-  }
-
-  private getProviderSlug(provider: AuthProvider) {
-    return provider === AuthProvider.GITHUB ? 'github' : 'google';
-  }
-
   private getProviderClientId(provider: AuthProvider) {
     return provider === AuthProvider.GITHUB
       ? (process.env.GITHUB_CLIENT_ID ?? '')
@@ -1052,7 +1005,7 @@ export class AuthService {
       !this.getProviderClientSecret(provider)
     ) {
       throw new ServiceUnavailableException(
-        `${this.getProviderSlug(provider)} OAuth is not configured.`,
+        `${getProviderSlug(provider)} OAuth is not configured.`,
       );
     }
   }

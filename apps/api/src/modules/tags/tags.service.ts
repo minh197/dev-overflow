@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { GetPopularTagsQueryDto } from './dto/get-popular-tags-query.dto';
-import {
-  ListTagsQueryDto,
-  TagsListSort,
-} from './dto/list-tags-query.dto';
+import { ListTagsQueryDto, TagsListSort } from './dto/list-tags-query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const DEFAULT_TAG_LIST_LIMIT = 500;

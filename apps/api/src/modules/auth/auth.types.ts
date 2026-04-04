@@ -30,3 +30,17 @@ export type PendingAccountLinkPayload = {
   avatarUrl: string | null;
   nextPath: string;
 };
+
+export type AccessTokenPayload = {
+  sub: number;
+  sessionId: number;
+  type: 'access';
+};
+
+export type OAuthStatePayload = {
+  provider: AuthProvider;
+  intent: 'sign-in' | 'link';
+  nextPath: string;
+  userId?: number;
+  type: 'oauth-state';
+};

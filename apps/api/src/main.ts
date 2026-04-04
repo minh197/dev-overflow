@@ -18,7 +18,7 @@ async function bootstrap() {
       .map((o) => o.trim())
       .filter(Boolean) ?? [];
   const corsOrigin =
-    rawOrigins.length > 1 ? rawOrigins : rawOrigins[0] ?? DEFAULT_WEB_ORIGIN;
+    rawOrigins.length > 1 ? rawOrigins : (rawOrigins[0] ?? DEFAULT_WEB_ORIGIN);
 
   // Explicit methods (string) + headers so browser preflight allows PATCH/DELETE
   // with credentialed JSON requests from the web app.

@@ -1,5 +1,13 @@
 import { SearchService } from './search.service';
 
+type TagFindManyCallArgs = {
+  select?: Record<string, boolean>;
+};
+
+type PostFindManyCallArgs = {
+  where: { OR: Array<Record<string, unknown>> };
+};
+
 // ---------------------------------------------------------------------------
 // Mock factory helpers
 // ---------------------------------------------------------------------------
@@ -145,12 +153,9 @@ describe('SearchService.classifyQuery', () => {
     ['react hooks', 'fts'],
     ['re act', 'fts'],
     ['js', 'short_partial'],
-  ] as const)(
-    'classifyQuery("%s") → %s',
-    (input, expected) => {
-      expect(service.classifyQuery(input)).toBe(expected);
-    },
-  );
+  ] as const)('classifyQuery("%s") → %s', (input, expected) => {
+    expect(service.classifyQuery(input)).toBe(expected);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -195,12 +200,15 @@ describe('SearchService (trigram path)', () => {
     await service.searchGlobal({ q: 'next', limitPerType: 5 });
 
     expect(prisma.tag.findMany).toHaveBeenCalledTimes(2);
+    const tagCalls = prisma.tag.findMany.mock.calls as Array<
+      [TagFindManyCallArgs]
+    >;
     // First call: pre-fetch — only selects id
-    expect(prisma.tag.findMany.mock.calls[0][0]).toMatchObject({
+    expect(tagCalls[0][0]).toMatchObject({
       select: { id: true },
     });
     // Second call: actual tag results — selects display fields
-    expect(prisma.tag.findMany.mock.calls[1][0]).toMatchObject({
+    expect(tagCalls[1][0]).toMatchObject({
       select: {
         id: true,
         slug: true,
@@ -216,13 +224,16 @@ describe('SearchService (trigram path)', () => {
 
     await service.searchGlobal({ q: 'next', limitPerType: 5 });
 
-    const questionCall = prisma.post.findMany.mock.calls[0][0];
-    const orClauses = questionCall.where.OR as Array<Record<string, unknown>>;
+    const postCalls = prisma.post.findMany.mock.calls as Array<
+      [PostFindManyCallArgs]
+    >;
+    const questionCall = postCalls[0][0];
+    const orClauses = questionCall.where.OR;
 
     // Must contain the tag OR clause using tagId: { in: [7] }
-    const tagClause = orClauses.find(
-      (c) => c.questionTags !== undefined,
-    ) as { questionTags: { some: { tagId: { in: number[] } } } } | undefined;
+    const tagClause = orClauses.find((c) => c.questionTags !== undefined) as
+      | { questionTags: { some: { tagId: { in: number[] } } } }
+      | undefined;
 
     expect(tagClause).toBeDefined();
     expect(tagClause?.questionTags.some.tagId.in).toContain(7);
@@ -242,8 +253,11 @@ describe('SearchService (trigram path)', () => {
     // "re" → short_partial, SEARCH_BODY_GUARDRAIL defaults to on
     await service.searchGlobal({ q: 're', limitPerType: 5 });
 
-    const questionCall = prisma.post.findMany.mock.calls[0][0];
-    const orClauses = questionCall.where.OR as Array<Record<string, unknown>>;
+    const postCalls = prisma.post.findMany.mock.calls as Array<
+      [PostFindManyCallArgs]
+    >;
+    const questionCall = postCalls[0][0];
+    const orClauses = questionCall.where.OR;
     const hasBodyClause = orClauses.some((c) => c.bodyMdx !== undefined);
     expect(hasBodyClause).toBe(false);
   });
@@ -255,8 +269,11 @@ describe('SearchService (trigram path)', () => {
 
     await service.searchGlobal({ q: 're', limitPerType: 5 });
 
-    const questionCall = prisma.post.findMany.mock.calls[0][0];
-    const orClauses = questionCall.where.OR as Array<Record<string, unknown>>;
+    const postCalls = prisma.post.findMany.mock.calls as Array<
+      [PostFindManyCallArgs]
+    >;
+    const questionCall = postCalls[0][0];
+    const orClauses = questionCall.where.OR;
     const hasBodyClause = orClauses.some((c) => c.bodyMdx !== undefined);
     expect(hasBodyClause).toBe(true);
   });
@@ -268,8 +285,11 @@ describe('SearchService (trigram path)', () => {
     // "react" → fts query type → body should be scanned
     await service.searchGlobal({ q: 'react', limitPerType: 5 });
 
-    const questionCall = prisma.post.findMany.mock.calls[0][0];
-    const orClauses = questionCall.where.OR as Array<Record<string, unknown>>;
+    const postCalls = prisma.post.findMany.mock.calls as Array<
+      [PostFindManyCallArgs]
+    >;
+    const questionCall = postCalls[0][0];
+    const orClauses = questionCall.where.OR;
     const hasBodyClause = orClauses.some((c) => c.bodyMdx !== undefined);
     expect(hasBodyClause).toBe(true);
   });
@@ -292,8 +312,11 @@ describe('SearchService (trigram path)', () => {
 
     await service.searchGlobal({ q: 'next', limitPerType: 5 });
 
-    const questionCall = prisma.post.findMany.mock.calls[0][0];
-    const orClauses = questionCall.where.OR as Array<Record<string, unknown>>;
+    const postCalls = prisma.post.findMany.mock.calls as Array<
+      [PostFindManyCallArgs]
+    >;
+    const questionCall = postCalls[0][0];
+    const orClauses = questionCall.where.OR;
 
     // When pre-fetch is off, tagIds=[] so no questionTags OR branch added
     const tagClause = orClauses.find((c) => c.questionTags !== undefined);
@@ -302,10 +325,7 @@ describe('SearchService (trigram path)', () => {
 
   it('filters out answers that have no parentQuestion', async () => {
     const answerWithNoParent = makeAnswer({ parentQuestion: null });
-    const prisma = createTrigramMock(
-      [makeQuestion()],
-      [answerWithNoParent],
-    );
+    const prisma = createTrigramMock([makeQuestion()], [answerWithNoParent]);
     const service = new SearchService(prisma as never);
 
     const result = await service.searchGlobal({ q: 'next', limitPerType: 5 });
@@ -314,7 +334,12 @@ describe('SearchService (trigram path)', () => {
 
   it('uses fallback strings for null title / fullName', async () => {
     const prisma = createTrigramMock(
-      [makeQuestion({ title: null, user: { username: 'bob', fullName: null } })],
+      [
+        makeQuestion({
+          title: null,
+          user: { username: 'bob', fullName: null },
+        }),
+      ],
       [makeAnswer({ user: { username: 'bob', fullName: null } })],
     );
     const service = new SearchService(prisma as never);
@@ -423,7 +448,9 @@ describe('SearchService.reputationLabel', () => {
   const service = new SearchService(null as never);
   const label = (n: number) =>
     // Access private method via cast for unit testing
-    (service as unknown as { reputationLabel: (n: number) => string }).reputationLabel(n);
+    (
+      service as unknown as { reputationLabel: (n: number) => string }
+    ).reputationLabel(n);
 
   it.each([
     [0, '0 rep'],

@@ -27,7 +27,9 @@ export class PostsService {
     const value = dto.value;
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(Prisma.sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`);
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`,
+      );
 
       const post = await tx.post.findFirst({
         where: {

@@ -177,7 +177,9 @@ export class SearchService {
         questionTags: { select: { tag: { select: { displayName: true } } } },
       },
     })) as SearchQuestionRow[];
-    return rows.sort((a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0));
+    return rows.sort(
+      (a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0),
+    );
   }
 
   private async hydrateAnswers(
@@ -195,7 +197,9 @@ export class SearchService {
         parentQuestion: { select: { id: true, title: true } },
       },
     })) as SearchAnswerRow[];
-    return rows.sort((a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0));
+    return rows.sort(
+      (a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0),
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -279,7 +283,10 @@ export class SearchService {
       trigramIds.forEach((id) => rankMap.set(id, -1));
     }
 
-    return this.hydrateQuestions([...ftsIds, ...tagOnlyIds, ...trigramIds], rankMap);
+    return this.hydrateQuestions(
+      [...ftsIds, ...tagOnlyIds, ...trigramIds],
+      rankMap,
+    );
   }
 
   private async searchAnswersFts(
