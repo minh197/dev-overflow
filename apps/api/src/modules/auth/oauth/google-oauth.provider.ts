@@ -1,5 +1,6 @@
 import { AuthProvider } from '@prisma/client';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { getProviderClientId, getProviderClientSecret } from '../auth-env';
 import { normalizeEmail } from '../auth.shared';
 import type { ProviderProfile } from '../auth.types';
 import { OAuthProviderStrategy } from './oauth-provider.strategy';
@@ -9,11 +10,11 @@ export class GoogleOAuthProvider extends OAuthProviderStrategy {
   readonly provider = AuthProvider.GOOGLE;
 
   protected getClientId() {
-    return process.env.GOOGLE_CLIENT_ID ?? '';
+    return getProviderClientId(AuthProvider.GOOGLE);
   }
 
   protected getClientSecret() {
-    return process.env.GOOGLE_CLIENT_SECRET ?? '';
+    return getProviderClientSecret(AuthProvider.GOOGLE);
   }
 
   buildAuthorizationUrl(state: string, redirectUri: string): string {

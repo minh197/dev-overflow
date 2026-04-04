@@ -17,3 +17,19 @@ export function getApiBaseUrl() {
 export function getProviderSlug(provider: AuthProvider) {
   return provider === AuthProvider.GITHUB ? 'github' : 'google';
 }
+
+export function getProviderClientId(provider: AuthProvider) {
+  if (provider === AuthProvider.GITHUB) {
+    return process.env.GITHUB_CLIENT_ID ?? process.env.GITHUB_ID ?? '';
+  }
+
+  return process.env.GOOGLE_CLIENT_ID ?? '';
+}
+
+export function getProviderClientSecret(provider: AuthProvider) {
+  if (provider === AuthProvider.GITHUB) {
+    return process.env.GITHUB_CLIENT_SECRET ?? process.env.GITHUB_SECRET ?? '';
+  }
+
+  return process.env.GOOGLE_CLIENT_SECRET ?? '';
+}

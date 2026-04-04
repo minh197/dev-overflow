@@ -3,6 +3,21 @@ import { PostStatus } from '@prisma/client';
 import { QuestionsService } from './questions.service';
 
 describe('QuestionsService', () => {
+  const makeSearchIndexMock = () => ({
+    syncUserById: jest.fn(),
+    syncQuestionById: jest.fn(),
+    syncAnswerById: jest.fn(),
+    syncTagsByIds: jest.fn(),
+    syncPostVoteCounts: jest.fn(),
+    removeQuestionDocument: jest.fn(),
+    deleteAnswersForQuestion: jest.fn(),
+    updateAnswersParentTitle: jest.fn(),
+    removeAnswerDocument: jest.fn(),
+    removeUserDocument: jest.fn(),
+    syncTagById: jest.fn(),
+    isConfigured: jest.fn().mockReturnValue(false),
+  });
+
   const makePrismaMock = () => {
     const tx = {
       post: {
@@ -71,7 +86,10 @@ describe('QuestionsService', () => {
     const prisma = makePrismaMock();
     prisma.post.findFirst.mockResolvedValue(baseQuestionRow);
 
-    const service = new QuestionsService(prisma as never);
+    const service = new QuestionsService(
+      prisma as never,
+      makeSearchIndexMock() as never,
+    );
 
     await expect(
       service.updateQuestion(11, actor, { title: 'Updated title' }),
@@ -87,7 +105,10 @@ describe('QuestionsService', () => {
       { tagId: 7, _count: { tagId: 0 } },
     ]);
 
-    const service = new QuestionsService(prisma as never);
+    const service = new QuestionsService(
+      prisma as never,
+      makeSearchIndexMock() as never,
+    );
 
     const result = await service.deleteQuestion(11, actor);
 

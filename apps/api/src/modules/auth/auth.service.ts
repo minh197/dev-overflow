@@ -26,6 +26,8 @@ import {
 import {
   getAccessTokenSecret,
   getApiBaseUrl,
+  getProviderClientId,
+  getProviderClientSecret,
   getProviderSlug,
   getWebBaseUrl,
 } from './auth-env';
@@ -48,12 +50,14 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly searchIndex: SearchIndexService,
   ) {}
 
   async signUp(dto: SignUpDto) {
@@ -88,6 +92,8 @@ export class AuthService {
       },
       select: authUserSelect,
     });
+
+    this.searchIndex.syncUserById(user.id);
 
     return { user };
   }
@@ -348,7 +354,7 @@ export class AuthService {
     )}/callback`;
 
     const params = new URLSearchParams();
-    params.set('client_id', this.getProviderClientId(provider));
+    params.set('client_id', getProviderClientId(provider));
     params.set('redirect_uri', callbackUrl);
     params.set('state', state);
 
@@ -397,7 +403,10 @@ export class AuthService {
       );
       await this.createSessionForUser(linkedUser, request, response);
       response.redirect(
-        `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}?linked=${getProviderSlug(provider)}`,
+        this.buildWebRedirectUrl(payload.nextPath, {
+          linked: getProviderSlug(provider),
+          oauth: getProviderSlug(provider),
+        }),
       );
       return;
     }
@@ -419,7 +428,9 @@ export class AuthService {
     if (existingAccount?.user) {
       await this.createSessionForUser(existingAccount.user, request, response);
       response.redirect(
-        `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}`,
+        this.buildWebRedirectUrl(payload.nextPath, {
+          oauth: getProviderSlug(provider),
+        }),
       );
       return;
     }
@@ -476,9 +487,13 @@ export class AuthService {
       select: authUserSelect,
     });
 
+    this.searchIndex.syncUserById(user.id);
+
     await this.createSessionForUser(user, request, response);
     response.redirect(
-      `${getWebBaseUrl()}${normalizeNextPath(payload.nextPath)}`,
+      this.buildWebRedirectUrl(payload.nextPath, {
+        oauth: getProviderSlug(provider),
+      }),
     );
   }
 
@@ -793,8 +808,8 @@ export class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          client_id: this.getProviderClientId(AuthProvider.GITHUB),
-          client_secret: this.getProviderClientSecret(AuthProvider.GITHUB),
+          client_id: getProviderClientId(AuthProvider.GITHUB),
+          client_secret: getProviderClientSecret(AuthProvider.GITHUB),
           code,
           redirect_uri: `${getApiBaseUrl()}/auth/github/callback`,
         }),
@@ -873,8 +888,8 @@ export class AuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: this.getProviderClientId(AuthProvider.GOOGLE),
-        client_secret: this.getProviderClientSecret(AuthProvider.GOOGLE),
+        client_id: getProviderClientId(AuthProvider.GOOGLE),
+        client_secret: getProviderClientSecret(AuthProvider.GOOGLE),
         code,
         grant_type: 'authorization_code',
         redirect_uri: `${getApiBaseUrl()}/auth/google/callback`,
@@ -987,23 +1002,21 @@ export class AuthService {
     );
   }
 
-  private getProviderClientId(provider: AuthProvider) {
-    return provider === AuthProvider.GITHUB
-      ? (process.env.GITHUB_CLIENT_ID ?? '')
-      : (process.env.GOOGLE_CLIENT_ID ?? '');
-  }
-
-  private getProviderClientSecret(provider: AuthProvider) {
-    return provider === AuthProvider.GITHUB
-      ? (process.env.GITHUB_CLIENT_SECRET ?? '')
-      : (process.env.GOOGLE_CLIENT_SECRET ?? '');
+  private buildWebRedirectUrl(
+    nextPath: string,
+    params: Record<string, string | undefined>,
+  ) {
+    const url = new URL(normalizeNextPath(nextPath), getWebBaseUrl());
+    for (const [key, value] of Object.entries(params)) {
+      if (value) {
+        url.searchParams.set(key, value);
+      }
+    }
+    return url.toString();
   }
 
   private assertProviderIsConfigured(provider: AuthProvider) {
-    if (
-      !this.getProviderClientId(provider) ||
-      !this.getProviderClientSecret(provider)
-    ) {
+    if (!getProviderClientId(provider) || !getProviderClientSecret(provider)) {
       throw new ServiceUnavailableException(
         `${getProviderSlug(provider)} OAuth is not configured.`,
       );

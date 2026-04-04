@@ -55,9 +55,26 @@ describe('AuthService', () => {
     verifyAsync: jest.fn(),
   });
 
+  const makeSearchIndexMock = () => ({
+    syncUserById: jest.fn(),
+    syncQuestionById: jest.fn(),
+    syncAnswerById: jest.fn(),
+    syncTagsByIds: jest.fn(),
+    syncPostVoteCounts: jest.fn(),
+    removeQuestionDocument: jest.fn(),
+    deleteAnswersForQuestion: jest.fn(),
+    updateAnswersParentTitle: jest.fn(),
+    removeAnswerDocument: jest.fn(),
+    removeUserDocument: jest.fn(),
+    syncTagById: jest.fn(),
+    isConfigured: jest.fn().mockReturnValue(false),
+  });
+
   afterEach(() => {
     delete process.env.GITHUB_CLIENT_ID;
     delete process.env.GITHUB_CLIENT_SECRET;
+    delete process.env.GITHUB_ID;
+    delete process.env.GITHUB_SECRET;
     delete process.env.NODE_ENV;
     jest.clearAllMocks();
   });
@@ -74,7 +91,11 @@ describe('AuthService', () => {
       fullName: null,
       avatarUrl: null,
     });
-    const service = new AuthService(prisma as never, jwtService as never);
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
 
     const result = await service.signUp({
       username: 'student',
@@ -82,14 +103,12 @@ describe('AuthService', () => {
       password: 'Password123!',
     });
 
-    expect(prisma.user.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          email: 'student@example.com',
-          username: 'student',
-        },
-      }),
-    );
+    const createUserCalls = prisma.user.create.mock.calls as Array<
+      [{ data: { email: string; username: string } }]
+    >;
+    const createUserCall = createUserCalls[0][0];
+    expect(createUserCall.data.email).toBe('student@example.com');
+    expect(createUserCall.data.username).toBe('student');
     expect(prisma.session.create).not.toHaveBeenCalled();
     expect(result).toEqual({
       user: {
@@ -113,7 +132,11 @@ describe('AuthService', () => {
       status: UserStatus.ACTIVE,
     });
 
-    const service = new AuthService(prisma as never, jwtService as never);
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
     const result = await service.forgotPassword({ email: 'reset@example.com' });
 
     expect(prisma.authToken.create).toHaveBeenCalled();
@@ -136,7 +159,11 @@ describe('AuthService', () => {
       ],
     });
 
-    const service = new AuthService(prisma as never, jwtService as never);
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
 
     await expect(
       service.unlinkProvider(8, AuthProvider.GITHUB),
@@ -159,7 +186,11 @@ describe('AuthService', () => {
       status: UserStatus.ACTIVE,
     });
 
-    const service = new AuthService(prisma as never, jwtService as never);
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
 
     await expect(
       service.signIn(
@@ -176,7 +207,11 @@ describe('AuthService', () => {
   it('requires provider credentials before building an OAuth URL', async () => {
     const prisma = makePrismaMock();
     const jwtService = makeJwtServiceMock();
-    const service = new AuthService(prisma as never, jwtService as never);
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
 
     await expect(
       service.buildProviderAuthorizationUrl(
@@ -185,5 +220,26 @@ describe('AuthService', () => {
         'sign-in',
       ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('accepts legacy GitHub env names when building an OAuth URL', async () => {
+    process.env.GITHUB_ID = 'legacy-github-client-id';
+    process.env.GITHUB_SECRET = 'legacy-github-client-secret';
+
+    const prisma = makePrismaMock();
+    const jwtService = makeJwtServiceMock();
+    const service = new AuthService(
+      prisma as never,
+      jwtService as never,
+      makeSearchIndexMock() as never,
+    );
+
+    const authorizationUrl = await service.buildProviderAuthorizationUrl(
+      AuthProvider.GITHUB,
+      '/',
+      'sign-in',
+    );
+
+    expect(authorizationUrl).toContain('client_id=legacy-github-client-id');
   });
 });

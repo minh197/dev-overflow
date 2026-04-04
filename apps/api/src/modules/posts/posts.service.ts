@@ -6,6 +6,7 @@ import {
 import { PostStatus, PostType, Prisma } from '@prisma/client';
 import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
 import type { CastVoteDto } from './dto/cast-vote.dto';
 
 export type CastVoteResult = {
@@ -17,7 +18,10 @@ export type CastVoteResult = {
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchIndex: SearchIndexService,
+  ) {}
 
   async castVote(
     postId: number,
@@ -104,12 +108,18 @@ export class PostsService {
       select: { value: true },
     });
 
-    return {
+    const userVote: CastVoteResult['userVote'] =
+      voteRow?.value === 1 || voteRow?.value === -1 ? voteRow.value : null;
+
+    const result: CastVoteResult = {
       postId,
       upVoteCount: post.upVoteCount,
       downVoteCount: post.downVoteCount,
-      userVote:
-        voteRow?.value === 1 || voteRow?.value === -1 ? voteRow.value : null,
+      userVote,
     };
+
+    this.searchIndex.syncPostVoteCounts(postId);
+
+    return result;
   }
 }

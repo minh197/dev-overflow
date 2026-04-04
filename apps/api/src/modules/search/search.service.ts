@@ -1,7 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { Prisma, PostStatus, PostType, UserStatus } from '@prisma/client';
+import type { Client } from 'typesense';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GetGlobalSearchQueryDto } from './dto/get-global-search-query.dto';
+import {
+  getSearchEngine,
+  getTypesenseFallback,
+} from './search-env';
+import {
+  SEARCH_COLLECTION_ANSWERS,
+  SEARCH_COLLECTION_QUESTIONS,
+  SEARCH_COLLECTION_TAGS,
+  SEARCH_COLLECTION_USERS,
+} from './typesense.collections';
+import { TYPESENSE_CLIENT } from './typesense.constants';
 
 // ---------------------------------------------------------------------------
 // Row types returned after Prisma hydration
@@ -54,9 +71,50 @@ type FtsHit = { id: bigint | number; rank: number };
 // normalized_recency  → ratio of post epoch to now epoch, ≤1 for any past date
 // ---------------------------------------------------------------------------
 
+type TypesenseQuestionDoc = {
+  id: string;
+  title?: string;
+  body_mdx?: string;
+  tag_display_names?: string[];
+  author_username: string;
+  author_full_name?: string;
+  created_at: number;
+};
+
+type TypesenseAnswerDoc = {
+  id: string;
+  body_mdx: string;
+  parent_question_id: number;
+  parent_title?: string;
+  author_username: string;
+  author_full_name?: string;
+  created_at: number;
+};
+
+type TypesenseUserDoc = {
+  id: string;
+  username: string;
+  full_name?: string;
+  reputation: number;
+};
+
+type TypesenseTagDoc = {
+  id: string;
+  slug: string;
+  display_name: string;
+  question_count: number;
+};
+
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SearchService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(TYPESENSE_CLIENT)
+    private readonly typesense: Client | null,
+  ) {}
 
   // -------------------------------------------------------------------------
   // Feature flags
@@ -463,6 +521,142 @@ export class SearchService {
   // -------------------------------------------------------------------------
 
   async searchGlobal(dto: GetGlobalSearchQueryDto) {
+    if (getSearchEngine() === 'typesense' && this.typesense) {
+      try {
+        return await this.searchGlobalTypesense(dto);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!getTypesenseFallback()) {
+          throw err;
+        }
+        this.logger.warn(
+          `Typesense search failed, falling back to Postgres: ${message}`,
+        );
+      }
+    }
+
+    return this.searchGlobalPostgres(dto);
+  }
+
+  private async searchGlobalTypesense(dto: GetGlobalSearchQueryDto) {
+    const q = dto.q.trim();
+    const limit = dto.limitPerType ?? 5;
+    const postFilter = 'status:=ACTIVE';
+    const userFilter = 'status:=ACTIVE';
+    const sortPosts =
+      '_text_match:desc,up_vote_count:desc,created_at:desc';
+    const sortUsers = '_text_match:desc,reputation:desc';
+    const sortTags =
+      '_text_match:desc,question_count:desc,display_name:asc';
+
+    const res = await this.typesense!.multiSearch.perform({
+      searches: [
+        {
+          collection: SEARCH_COLLECTION_QUESTIONS,
+          q,
+          query_by: 'title,body_mdx,tag_display_names',
+          filter_by: postFilter,
+          per_page: limit,
+          sort_by: sortPosts,
+        },
+        {
+          collection: SEARCH_COLLECTION_ANSWERS,
+          q,
+          query_by: 'body_mdx,parent_title',
+          filter_by: postFilter,
+          per_page: limit,
+          sort_by: sortPosts,
+        },
+        {
+          collection: SEARCH_COLLECTION_USERS,
+          q,
+          query_by: 'username,full_name',
+          filter_by: userFilter,
+          per_page: limit,
+          sort_by: sortUsers,
+        },
+        {
+          collection: SEARCH_COLLECTION_TAGS,
+          q,
+          query_by: 'slug,display_name',
+          per_page: limit,
+          sort_by: sortTags,
+        },
+      ],
+    });
+
+    const results = res.results as unknown as [
+      { hits?: Array<{ document?: TypesenseQuestionDoc }> },
+      { hits?: Array<{ document?: TypesenseAnswerDoc }> },
+      { hits?: Array<{ document?: TypesenseUserDoc }> },
+      { hits?: Array<{ document?: TypesenseTagDoc }> },
+    ];
+
+    const qh = results[0]?.hits ?? [];
+    const ah = results[1]?.hits ?? [];
+    const uh = results[2]?.hits ?? [];
+    const th = results[3]?.hits ?? [];
+
+    return {
+      query: q,
+      questions: qh.map(({ document: d }) => {
+        if (!d) {
+          throw new Error('Typesense question response missing document');
+        }
+        return {
+          id: d.id,
+          title: d.title?.trim() ? d.title : 'Untitled question',
+          href: `/questions/${d.id}`,
+          authorName: d.author_full_name?.trim()
+            ? d.author_full_name
+            : d.author_username,
+          createdAtLabel: this.toRelativeLabel(new Date(d.created_at)),
+          tags: d.tag_display_names ?? [],
+        };
+      }),
+      answers: ah
+        .map(({ document: d }) => d)
+        .filter((d): d is TypesenseAnswerDoc => d != null)
+        .map((d) => ({
+          id: d.id,
+          excerpt: this.snippet(d.body_mdx, q),
+          href: `/questions/${d.parent_question_id}`,
+          authorName: d.author_full_name?.trim()
+            ? d.author_full_name
+            : d.author_username,
+          questionTitle: d.parent_title?.trim()
+            ? d.parent_title
+            : 'Untitled question',
+          createdAtLabel: this.toRelativeLabel(new Date(d.created_at)),
+        })),
+      users: uh.map(({ document: d }) => {
+        if (!d) {
+          throw new Error('Typesense user response missing document');
+        }
+        return {
+          id: d.id,
+          username: d.username,
+          displayName: d.full_name?.trim() ? d.full_name : d.username,
+          href: `/?search=${encodeURIComponent(d.username)}&type=users`,
+          reputationLabel: this.reputationLabel(d.reputation),
+        };
+      }),
+      tags: th.map(({ document: d }) => {
+        if (!d) {
+          throw new Error('Typesense tag response missing document');
+        }
+        return {
+          id: d.id,
+          slug: d.slug,
+          displayName: d.display_name,
+          href: `/?search=${encodeURIComponent(d.slug)}&type=tags`,
+          countLabel: `${d.question_count}+ questions`,
+        };
+      }),
+    };
+  }
+
+  private async searchGlobalPostgres(dto: GetGlobalSearchQueryDto) {
     const q = dto.q.trim();
     const limit = dto.limitPerType ?? 5;
     const { useFtsPosts, useTagPrefetch, useBodyGuardrail } = this.flags;

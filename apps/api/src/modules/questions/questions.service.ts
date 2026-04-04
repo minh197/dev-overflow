@@ -8,6 +8,7 @@ import { PostStatus, PostType, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
 import { GetQuestionsQueryDto } from './dto/get-questions-query.dto';
 import { GetHotQuestionsQueryDto } from './dto/get-hot-questions-query.dto';
 import { QuestionsSort } from './dto/get-questions-query.dto';
@@ -65,7 +66,10 @@ type QuestionDetailRow = ListQuestionRow & {
 
 @Injectable()
 export class QuestionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchIndex: SearchIndexService,
+  ) {}
 
   private isAdmin(actor: AuthUser | null): boolean {
     if (!actor) return false;
@@ -404,7 +408,7 @@ export class QuestionsService {
   ) {
     const currentUser = this.assertAuthenticated(actor);
 
-    await this.prisma.$transaction(async (tx) => {
+    const newAnswerId = await this.prisma.$transaction(async (tx) => {
       const parent = await tx.post.findFirst({
         where: {
           id: questionId,
@@ -418,7 +422,7 @@ export class QuestionsService {
         throw new NotFoundException('Question not found.');
       }
 
-      await tx.post.create({
+      const created = await tx.post.create({
         data: {
           uuid: randomUUID(),
           userId: currentUser.id,
@@ -428,13 +432,18 @@ export class QuestionsService {
           type: PostType.ANSWER,
           status: PostStatus.ACTIVE,
         },
+        select: { id: true },
       });
 
       await tx.post.update({
         where: { id: questionId },
         data: { answerCount: { increment: 1 } },
       });
+
+      return created.id;
     });
+
+    this.searchIndex.syncAnswerById(newAnswerId);
 
     return this.getQuestion(questionId, currentUser);
   }
@@ -469,6 +478,9 @@ export class QuestionsService {
       await this.syncTagCountsForIds(tx, tagIds);
       return post.id;
     });
+
+    this.searchIndex.syncQuestionById(created);
+    this.searchIndex.syncTagsByIds(tagIds);
 
     return this.getQuestion(created, currentUser);
   }
@@ -510,6 +522,14 @@ export class QuestionsService {
       }
     });
 
+    this.searchIndex.syncQuestionById(id);
+    if (nextTagIds) {
+      this.searchIndex.syncTagsByIds([...existingTagIds, ...nextTagIds]);
+    }
+    if (dto.title !== undefined) {
+      this.searchIndex.updateAnswersParentTitle(id, dto.title.trim());
+    }
+
     return this.getQuestion(id, currentUser);
   }
 
@@ -530,6 +550,10 @@ export class QuestionsService {
       await tx.post.delete({ where: { id } });
       await this.syncTagCountsForIds(tx, tagIds);
     });
+
+    this.searchIndex.removeQuestionDocument(id);
+    this.searchIndex.deleteAnswersForQuestion(id);
+    this.searchIndex.syncTagsByIds(tagIds);
 
     return { id, deleted: true };
   }
