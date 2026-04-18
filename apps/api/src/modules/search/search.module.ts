@@ -3,6 +3,7 @@ import Typesense from 'typesense';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { SearchController } from './search.controller';
 import { getTypesenseConfigurationOptions } from './search-env';
+import { SearchIndexDocumentBuilderService } from './search-index-document-builder.service';
 import { SearchIndexService } from './search-index.service';
 import { SearchService } from './search.service';
 import { TYPESENSE_CLIENT } from './typesense.constants';
@@ -21,6 +22,7 @@ import { TYPESENSE_CLIENT } from './typesense.constants';
         return new Typesense.Client(opts);
       },
     },
+    SearchIndexDocumentBuilderService,
     SearchService,
     SearchIndexService,
   ],

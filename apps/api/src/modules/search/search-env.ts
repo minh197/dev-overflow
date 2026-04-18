@@ -9,6 +9,14 @@ export function getTypesenseFallback(): boolean {
   return process.env.SEARCH_TYPESENSE_FALLBACK === 'true';
 }
 
+/** Batch flush interval for in-memory search index queue (ms). Default 5000. */
+export function getSearchIndexFlushIntervalMs(): number {
+  const raw = process.env.SEARCH_INDEX_FLUSH_INTERVAL_MS?.trim();
+  if (!raw) return 5000;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 250 ? n : 5000;
+}
+
 export type TypesenseClientOptions = {
   nodes: Array<{ host: string; port: number; protocol: 'http' | 'https' }>;
   apiKey: string;
